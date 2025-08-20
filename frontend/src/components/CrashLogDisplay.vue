@@ -121,6 +121,7 @@ const emit = defineEmits<{
 const authStore = useAuthStore()
 const activeFileIndex = ref(0)
 const codeElement = ref<HTMLElement>()
+const isUpdatingFromUrl = ref(false)
 
 const currentFile = computed(() => props.crashLog.files[activeFileIndex.value])
 const codeLines = computed(() => currentFile.value.content.split('\n'))
@@ -150,7 +151,11 @@ const handleLineClick = async (lineNumber: number) => {
     // Copy permalink (this creates the shareable URL)
     await copyPermalink(lineNumber)
     
-    // Just provide visual feedback without changing the current URL
+    // Update the URL to show the current line
+    const newUrl = `${window.location.pathname}?file=${activeFileIndex.value}#line-${lineNumber}`
+    window.history.pushState({}, '', newUrl)
+    
+    // Provide visual feedback
     const element = document.getElementById(`line-${lineNumber}`)
     if (element) {
       // Remove any existing highlights
@@ -199,6 +204,7 @@ const scrollToLineFromUrl = () => {
 
 const initializeFromUrl = () => {
   // Only check URL parameters on initial load, not on file changes
+  isUpdatingFromUrl.value = true
   const urlParams = new URLSearchParams(window.location.search)
   const fileParam = urlParams.get('file')
   if (fileParam !== null) {
@@ -208,6 +214,7 @@ const initializeFromUrl = () => {
     }
   }
   scrollToLineFromUrl()
+  isUpdatingFromUrl.value = false
 }
 
 const highlightCrashLog = (content: string): string => {
@@ -324,8 +331,10 @@ const handleDelete = () => {
 
 watch(activeFileIndex, async () => {
   await nextTick()
-  // Only scroll to line from URL, don't re-read file parameters
-  scrollToLineFromUrl()
+  // Only scroll to line from URL if this change came from URL, not user clicking tabs
+  if (isUpdatingFromUrl.value) {
+    scrollToLineFromUrl()
+  }
 })
 
 onMounted(async () => {
