@@ -65,12 +65,12 @@
             <div class="line-numbers" v-if="codeLines.length > 0">
               <a 
                 v-for="(_, index) in codeLines" 
-                :key="index"
+                :key="`${activeFileIndex}-${index}`"
                 :id="`line-${index + 1}`"
-                :href="`#line-${index + 1}`"
+                :href="`?file=${activeFileIndex}#line-${index + 1}`"
                 class="line-number"
-                @click="copyPermalink(index + 1)"
-                :title="`Click to copy link to line ${index + 1}`"
+                @click.prevent="copyPermalink(index + 1)"
+                :title="`Click to copy link to line ${index + 1} in ${currentFile.name}`"
               >
                 {{ index + 1 }}
               </a>
@@ -145,17 +145,29 @@ const formatFileSize = (bytes: number): string => {
 }
 
 const copyPermalink = async (lineNumber: number) => {
-  const url = `${window.location.origin}/crash/${props.crashLog.id}#line-${lineNumber}`
+  const fileName = currentFile.value.name
+  const fileIndex = activeFileIndex.value
+  const url = `${window.location.origin}/crash/${props.crashLog.id}?file=${fileIndex}#line-${lineNumber}`
   try {
     await navigator.clipboard.writeText(url)
     // Could add a toast notification here
-    console.log(`Copied permalink to line ${lineNumber}`)
+    console.log(`Copied permalink to line ${lineNumber} in ${fileName}`)
   } catch (err) {
     console.error('Failed to copy permalink:', err)
   }
 }
 
 const scrollToLineFromUrl = () => {
+  // Check if URL has file parameter and switch to that file first
+  const urlParams = new URLSearchParams(window.location.search)
+  const fileParam = urlParams.get('file')
+  if (fileParam !== null) {
+    const fileIndex = parseInt(fileParam)
+    if (fileIndex >= 0 && fileIndex < props.crashLog.files.length) {
+      activeFileIndex.value = fileIndex
+    }
+  }
+
   const hash = window.location.hash
   if (hash.startsWith('#line-')) {
     const lineNumber = parseInt(hash.replace('#line-', ''))
