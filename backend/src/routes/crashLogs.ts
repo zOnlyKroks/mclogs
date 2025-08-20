@@ -45,13 +45,16 @@ router.post('/', createRateLimit, AuthService.requireAuth, async (req: Authentic
       await database.deleteOldestUserCrashLog(userId)
     }
 
+    // Redact IP addresses from content before storing
+    const sanitizedContent = content.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[REDACTED]')
+
     const crashLog = {
       id,
       title: title?.substring(0, 200) || `Crash ${new Date().toISOString().split('T')[0]}`,
-      content,
+      content: sanitizedContent,
       ...parsedData,
       userId,
-      ipAddress: req.ip || 'unknown',
+      ipAddress: '[REDACTED]', // Always redact IP addresses before storage
       userAgent: req.get('User-Agent'),
       expiresAt
     }
