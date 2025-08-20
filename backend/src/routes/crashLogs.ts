@@ -37,7 +37,7 @@ router.post('/', createRateLimit, AuthService.requireAuth, async (req: Authentic
     const parsedData = CrashParser.parse(content)
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
-    const userId = req.user.id
+    const userId = req.user!.id
     
     const userLogCount = await database.getUserCrashLogCount(userId)
     
