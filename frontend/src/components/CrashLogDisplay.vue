@@ -35,6 +35,7 @@ interface Props {
 
 const props = defineProps<Props>()
 const codeElement = ref<HTMLElement>()
+const versionPlaceholders = new Map<string, string>()
 
 const highlightCode = () => {
   if (codeElement.value) {
@@ -44,9 +45,64 @@ const highlightCode = () => {
   }
 }
 
+const redactIPs = (content: string): string => {
+  // First, protect version numbers in Fabric modlist sections
+  let protectedContent = content.replace(
+    /(Loading \d+ mods:[\s\S]*?)(\d+(?:\.\d+)*(?:[+\-][a-zA-Z0-9._-]+)*)/gm,
+    (match, prefix, version) => {
+      // Generate a unique placeholder for this version
+      const placeholder = `__VERSION_${Math.random().toString(36).substr(2, 9)}__`
+      versionPlaceholders.set(placeholder, version)
+      return prefix + placeholder
+    }
+  )
+  
+  // Protect version numbers in Fabric mod lines (- modname version)
+  protectedContent = protectedContent.replace(
+    /^(\s*[-|\\]\s*)(\w+)\s+(\d+(?:\.\d+)*(?:[+\-][a-zA-Z0-9._-]+)*)/gm,
+    (match, prefix, modName, version) => {
+      const placeholder = `__VERSION_${Math.random().toString(36).substr(2, 9)}__`
+      versionPlaceholders.set(placeholder, version)
+      return `${prefix}${modName} ${placeholder}`
+    }
+  )
+  
+  // Protect version numbers in general mod version patterns
+  protectedContent = protectedContent.replace(
+    /(\w+)\s+(\d+(?:\.\d+)*(?:[+\-][a-zA-Z0-9._-]+)*)/gm,
+    (match, modName, version) => {
+      // Only protect if this looks like a mod version (has letters/dashes/plus after numbers)
+      if (version.match(/^\d+(?:\.\d+)*(?:[+\-][a-zA-Z0-9._-]+)*$/)) {
+        const placeholder = `__VERSION_${Math.random().toString(36).substr(2, 9)}__`
+        versionPlaceholders.set(placeholder, version)
+        return `${modName} ${placeholder}`
+      }
+      return match
+    }
+  )
+  
+  // Now redact actual IP addresses (4 octets only)
+  const redactedContent = protectedContent.replace(
+    /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g,
+    '<span class="hljs-redacted">[REDACTED]</span>'
+  )
+  
+  // Restore protected version numbers
+  let finalContent = redactedContent
+  versionPlaceholders.forEach((version, placeholder) => {
+    finalContent = finalContent.replace(placeholder, version)
+  })
+  versionPlaceholders.clear()
+  
+  return finalContent
+}
+
 const highlightCrashLog = (content: string): string => {
-  // Custom highlighting for crash logs
-  return content
+  // First redact IPs while protecting version numbers
+  const redactedContent = redactIPs(content)
+  
+  // Then apply highlighting
+  return redactedContent
     .replace(/(Exception|Error)(\s*:.*)?$/gm, '<span class="hljs-exception">$1$2</span>')
     .replace(/^\s*at\s+(.+)$/gm, '<span class="hljs-stacktrace">at $1</span>')
     .replace(/^\s*Caused by:\s*(.+)$/gm, '<span class="hljs-caused-by">Caused by: $1</span>')
@@ -172,6 +228,14 @@ onMounted(async () => {
 
 :deep(.hljs-package) {
   color: #6f42c1;
+}
+
+:deep(.hljs-redacted) {
+  color: #dc3545;
+  background: rgba(220, 53, 69, 0.1);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-style: italic;
 }
 
 @media (max-width: 768px) {
