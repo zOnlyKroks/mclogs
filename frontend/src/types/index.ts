@@ -20,6 +20,7 @@ export interface CrashLog {
   culpritMod?: string
   ipAddress: string
   userAgent?: string
+  userId: string
   createdAt: Date
   expiresAt?: Date
   tags?: string[]
