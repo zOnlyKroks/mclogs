@@ -395,6 +395,22 @@ export class Database {
     `, [userId])
   }
 
+  async deleteCrashLog(id: string, userId: string): Promise<boolean> {
+    const run = (sql: string, params: any[]) => 
+      new Promise<any>((resolve, reject) => {
+        this.db.run(sql, params, function(err) {
+          if (err) reject(err)
+          else resolve({ changes: this.changes })
+        })
+      })
+    
+    const result = await run(`
+      DELETE FROM crash_logs WHERE id = ? AND user_id = ?
+    `, [id, userId]) as any
+
+    return result.changes > 0
+  }
+
   // Comment methods
   async createComment(commentData: Omit<Comment, 'id' | 'createdAt'>): Promise<Comment> {
     const commentId = require('uuid').v4()

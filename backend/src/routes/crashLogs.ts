@@ -141,6 +141,28 @@ router.get('/:id', async (req, res) => {
   }
 })
 
+router.delete('/:id', AuthService.requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params
+    const user = req.user!
+
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({ error: 'Invalid crash log ID' })
+    }
+
+    const deleted = await database.deleteCrashLog(id, user.id)
+    
+    if (!deleted) {
+      return res.status(404).json({ error: 'Crash log not found or not authorized to delete' })
+    }
+
+    res.json({ message: 'Crash log deleted successfully' })
+  } catch (error) {
+    console.error('Error deleting crash log:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 router.get('/', searchRateLimit, async (req, res) => {
   try {
     const {

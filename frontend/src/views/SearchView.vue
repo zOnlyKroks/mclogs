@@ -427,8 +427,9 @@ onMounted(async () => {
 }
 
 .results-header p {
-  color: #6c757d;
+  color: #2c3e50;
   margin: 0;
+  font-weight: 500;
 }
 
 .no-results {
@@ -477,7 +478,7 @@ onMounted(async () => {
   gap: 1rem;
   margin-bottom: 1rem;
   font-size: 0.9rem;
-  color: #6c757d;
+  color: #495057;
 }
 
 .search-result-meta span {

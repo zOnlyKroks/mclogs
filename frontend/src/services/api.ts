@@ -30,6 +30,10 @@ export class ApiService {
     }
   }
 
+  static async deleteCrashLog(id: string): Promise<void> {
+    await api.delete(`/crashes/${id}`)
+  }
+
   static async searchCrashLogs(params: SearchParams): Promise<SearchResponse> {
     const response = await api.get('/crashes', { params })
     return {

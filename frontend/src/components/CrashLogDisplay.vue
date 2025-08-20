@@ -15,6 +15,14 @@
         <button @click="downloadBundle" class="btn btn-secondary">
           Download Bundle
         </button>
+        <button 
+          v-if="canDelete"
+          @click="handleDelete" 
+          class="btn btn-danger"
+          title="Force close this log report"
+        >
+          Force Close
+        </button>
       </div>
     </div>
 
@@ -84,6 +92,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { useAuthStore } from '../stores/auth'
 import type { CrashLog } from '../types'
 
 interface Props {
@@ -91,10 +100,20 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const emit = defineEmits<{
+  delete: []
+}>()
+
+const authStore = useAuthStore()
 const activeFileIndex = ref(0)
 const codeElement = ref<HTMLElement>()
 
 const currentFile = computed(() => props.crashLog.files[activeFileIndex.value])
+
+const canDelete = computed(() => {
+  return authStore.isAuthenticated && 
+         authStore.user?.id === props.crashLog.userId
+})
 
 const formatDate = (date: Date | string) => {
   return new Date(date).toLocaleString()
@@ -175,6 +194,12 @@ const downloadBundle = () => {
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
+}
+
+const handleDelete = () => {
+  if (confirm('Are you sure you want to force close this log report? This action cannot be undone.')) {
+    emit('delete')
+  }
 }
 
 watch(activeFileIndex, async () => {

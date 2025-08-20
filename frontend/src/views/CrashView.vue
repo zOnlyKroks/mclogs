@@ -81,7 +81,7 @@
         </div>
       </div>
 
-      <CrashLogDisplay :crash-log="crashLog" />
+      <CrashLogDisplay :crash-log="crashLog" @delete="handleDelete" />
 
       <CommentSection 
         :crash-log-id="crashLog.id" 
@@ -122,7 +122,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ApiService } from '../services/api'
 import { ModLinkService } from '../services/modLinks'
 import CrashLogDisplay from '../components/CrashLogDisplay.vue'
@@ -130,6 +130,7 @@ import CommentSection from '../components/CommentSection.vue'
 import type { CrashLog } from '../types'
 
 const route = useRoute()
+const router = useRouter()
 
 const loading = ref(true)
 const error = ref('')
@@ -172,6 +173,17 @@ const formatDate = (date: Date) => {
 
 const getModLink = (modName: string) => {
   return ModLinkService.getPrimaryLink(modName)
+}
+
+const handleDelete = async () => {
+  if (!crashLog.value) return
+  
+  try {
+    await ApiService.deleteCrashLog(crashLog.value.id)
+    router.push('/')
+  } catch (err: any) {
+    error.value = 'Failed to delete crash log'
+  }
 }
 
 onMounted(() => {

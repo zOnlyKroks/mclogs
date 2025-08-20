@@ -57,6 +57,15 @@ h1, h2, h3, h4, h5, h6 {
   background: #5a6268;
 }
 
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
 .form-group {
   margin-bottom: 1rem;
 }
@@ -161,7 +170,7 @@ h1, h2, h3, h4, h5, h6 {
   flex-wrap: wrap;
   gap: 1rem;
   font-size: 0.875rem;
-  color: #6c757d;
+  color: #495057;
   margin-bottom: 0.5rem;
 }
 
