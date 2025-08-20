@@ -1,6 +1,6 @@
 import sqlite3 from 'sqlite3'
 import { promisify } from 'util'
-import { CrashLog, CrashLogSearchParams } from '../models/CrashLog'
+import { CrashLog, CrashLogSearchParams, Comment } from '../models/CrashLog'
 import { User } from '../models/User'
 
 export class Database {
@@ -96,6 +96,34 @@ export class Database {
         content='crash_logs',
         content_rowid='rowid'
       )
+    `)
+
+    // Create comments table
+    await run(`
+      CREATE TABLE IF NOT EXISTS comments (
+        id TEXT PRIMARY KEY,
+        crash_log_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        user_picture TEXT,
+        content TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME,
+        FOREIGN KEY (crash_log_id) REFERENCES crash_logs (id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      )
+    `)
+
+    await run(`
+      CREATE INDEX IF NOT EXISTS idx_comments_crash_log_id ON comments (crash_log_id)
+    `)
+
+    await run(`
+      CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments (user_id)
+    `)
+
+    await run(`
+      CREATE INDEX IF NOT EXISTS idx_comments_created_at ON comments (created_at DESC)
     `)
   }
 
@@ -365,6 +393,142 @@ export class Database {
       ORDER BY created_at ASC 
       LIMIT 1
     `, [userId])
+  }
+
+  // Comment methods
+  async createComment(commentData: Omit<Comment, 'id' | 'createdAt'>): Promise<Comment> {
+    const commentId = require('uuid').v4()
+    const now = new Date().toISOString()
+    
+    await new Promise<void>((resolve, reject) => {
+      const stmt = this.db.prepare(`
+        INSERT INTO comments (id, crash_log_id, user_id, user_name, user_picture, content, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `)
+      
+      stmt.run([
+        commentId,
+        commentData.crashLogId,
+        commentData.userId,
+        commentData.userName,
+        commentData.userPicture,
+        commentData.content,
+        now
+      ], (err) => {
+        if (err) reject(err)
+        else resolve()
+      })
+      
+      stmt.finalize()
+    })
+
+    return {
+      id: commentId,
+      crashLogId: commentData.crashLogId,
+      userId: commentData.userId,
+      userName: commentData.userName,
+      userPicture: commentData.userPicture,
+      content: commentData.content,
+      createdAt: new Date(now)
+    }
+  }
+
+  async getCommentsByCrashLogId(crashLogId: string): Promise<Comment[]> {
+    const all = (sql: string, params: any[]) => 
+      new Promise<any[]>((resolve, reject) => {
+        this.db.all(sql, params, (err, rows) => {
+          if (err) reject(err)
+          else resolve(rows)
+        })
+      })
+    
+    const rows = await all(`
+      SELECT * FROM comments WHERE crash_log_id = ? ORDER BY created_at ASC
+    `, [crashLogId]) as any[]
+
+    return rows.map(row => this.rowToComment(row))
+  }
+
+  async updateComment(commentId: string, content: string, userId: string): Promise<boolean> {
+    const run = (sql: string, params: any[]) => 
+      new Promise<any>((resolve, reject) => {
+        this.db.run(sql, params, function(err) {
+          if (err) reject(err)
+          else resolve({ changes: this.changes })
+        })
+      })
+    
+    const result = await run(`
+      UPDATE comments SET content = ?, updated_at = ? WHERE id = ? AND user_id = ?
+    `, [content, new Date().toISOString(), commentId, userId]) as any
+
+    return result.changes > 0
+  }
+
+  async deleteComment(commentId: string, userId: string): Promise<boolean> {
+    const run = (sql: string, params: any[]) => 
+      new Promise<any>((resolve, reject) => {
+        this.db.run(sql, params, function(err) {
+          if (err) reject(err)
+          else resolve({ changes: this.changes })
+        })
+      })
+    
+    const result = await run(`
+      DELETE FROM comments WHERE id = ? AND user_id = ?
+    `, [commentId, userId]) as any
+
+    return result.changes > 0
+  }
+
+  async getUserRecentComments(userId: string, days: number = 30): Promise<Comment[]> {
+    const all = (sql: string, params: any[]) => 
+      new Promise<any[]>((resolve, reject) => {
+        this.db.all(sql, params, (err, rows) => {
+          if (err) reject(err)
+          else resolve(rows)
+        })
+      })
+    
+    const cutoffDate = new Date()
+    cutoffDate.setDate(cutoffDate.getDate() - days)
+    
+    const rows = await all(`
+      SELECT * FROM comments 
+      WHERE user_id = ? AND created_at >= ?
+      ORDER BY created_at DESC
+    `, [userId, cutoffDate.toISOString()]) as any[]
+
+    return rows.map(row => this.rowToComment(row))
+  }
+
+  async getUserCrashLogs(userId: string): Promise<CrashLog[]> {
+    const all = (sql: string, params: any[]) => 
+      new Promise<any[]>((resolve, reject) => {
+        this.db.all(sql, params, (err, rows) => {
+          if (err) reject(err)
+          else resolve(rows)
+        })
+      })
+    
+    const rows = await all(`
+      SELECT * FROM crash_logs WHERE user_id = ? ORDER BY created_at DESC
+    `, [userId]) as any[]
+
+    return rows.map(row => this.rowToCrashLog(row))
+  }
+
+  private rowToComment(row: any): Comment {
+    return {
+      id: row.id,
+      crashLogId: row.crash_log_id,
+      userId: row.user_id,
+      userName: row.user_name,
+      userPicture: row.user_picture,
+      content: row.content,
+      createdAt: new Date(row.created_at),
+      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined
+    }
   }
 
   private rowToCrashLog(row: any): CrashLog {

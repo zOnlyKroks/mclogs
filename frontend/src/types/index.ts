@@ -62,3 +62,50 @@ export interface CreateCrashResponse {
   expiresAt: Date
   fileCount: number
 }
+
+export interface Comment {
+  id: string
+  crashLogId: string
+  userId: string
+  userName: string
+  userPicture?: string
+  content: string
+  createdAt: Date
+  updatedAt?: Date
+}
+
+export interface User {
+  id: string
+  email: string
+  name: string
+  picture?: string
+  createdAt?: Date
+  lastLogin?: Date
+}
+
+export interface UserDashboard {
+  user: User
+  stats: {
+    totalCrashLogs: number
+    activeCrashLogs: number
+    expiredCrashLogs: number
+    recentComments: number
+  }
+  crashLogs: UserCrashLog[]
+  recentComments: Comment[]
+}
+
+export interface UserCrashLog {
+  id: string
+  title?: string
+  description?: string
+  minecraftVersion?: string
+  modLoader?: string
+  errorType?: string
+  errorMessage?: string
+  culpritMod?: string
+  fileCount: number
+  createdAt: Date
+  expiresAt?: Date
+  isExpired: boolean
+}

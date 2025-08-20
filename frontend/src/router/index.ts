@@ -18,6 +18,11 @@ const router = createRouter({
       path: '/crash/:id',
       name: 'crash',
       component: () => import('../views/CrashView.vue')
+    },
+    {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: () => import('../views/DashboardView.vue')
     }
   ]
 })

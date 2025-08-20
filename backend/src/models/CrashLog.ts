@@ -35,3 +35,14 @@ export interface CrashLogSearchParams {
   limit?: number
   offset?: number
 }
+
+export interface Comment {
+  id: string
+  crashLogId: string
+  userId: string
+  userName: string
+  userPicture?: string
+  content: string
+  createdAt: Date
+  updatedAt?: Date
+}

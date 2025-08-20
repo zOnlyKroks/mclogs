@@ -83,6 +83,11 @@
 
       <CrashLogDisplay :crash-log="crashLog" />
 
+      <CommentSection 
+        :crash-log-id="crashLog.id" 
+        :is-expired="crashLog.expiresAt ? new Date() > crashLog.expiresAt : false"
+      />
+
       <div class="related-section">
         <h3>Find Similar Crashes</h3>
         <div class="related-searches">
@@ -121,6 +126,7 @@ import { useRoute } from 'vue-router'
 import { ApiService } from '../services/api'
 import { ModLinkService } from '../services/modLinks'
 import CrashLogDisplay from '../components/CrashLogDisplay.vue'
+import CommentSection from '../components/CommentSection.vue'
 import type { CrashLog } from '../types'
 
 const route = useRoute()

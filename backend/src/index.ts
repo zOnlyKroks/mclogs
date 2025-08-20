@@ -8,6 +8,8 @@ import passport from "passport";
 import { AuthService } from "./services/auth";
 import crashLogsRouter from "./routes/crashLogs";
 import authRouter from "./routes/auth";
+import commentsRouter from "./routes/comments";
+import usersRouter from "./routes/users";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -48,6 +50,8 @@ app.use(passport.session());
 
 app.use("/api/auth", authRouter);
 app.use("/api/crashes", crashLogsRouter);
+app.use("/api/comments", commentsRouter);
+app.use("/api/users", usersRouter);
 
 app.get("/health", (req, res) => {
   res.json({

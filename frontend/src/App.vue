@@ -9,6 +9,7 @@
           <div class="nav-links">
             <router-link to="/">Submit</router-link>
             <router-link to="/search">Search</router-link>
+            <router-link v-if="authStore.user" to="/dashboard">Dashboard</router-link>
           </div>
           
           <div class="auth-section">
