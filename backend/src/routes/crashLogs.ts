@@ -6,6 +6,23 @@ import { AuthService } from '../services/auth'
 import rateLimit from 'express-rate-limit'
 import type { AuthenticatedRequest } from '../models/User'
 
+function sanitizeContent(content: string): string {
+  return content
+    // Redact IP addresses
+    .replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[REDACTED_IP]')
+    // Redact URLs - everything after protocol
+    .replace(/(https?:\/\/)[^\s\]]+/g, '$1[REDACTED_URL]')
+    // Redact file paths that might contain usernames
+    .replace(/\/Users\/[^\/\s]+/g, '/Users/[REDACTED_USER]')
+    .replace(/C:\\Users\\[^\\\/\s]+/g, 'C:\\Users\\[REDACTED_USER]')
+    // Redact common username patterns in logs
+    .replace(/User:\s*[^\s\[\]]+/gi, 'User: [REDACTED_USER]')
+    .replace(/Player:\s*[^\s\[\]]+/gi, 'Player: [REDACTED_USER]')
+    .replace(/Username:\s*[^\s\[\]]+/gi, 'Username: [REDACTED_USER]')
+    // Redact email addresses
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[REDACTED_EMAIL]')
+}
+
 const router = Router()
 
 // Rate limiting
@@ -45,8 +62,8 @@ router.post('/', createRateLimit, AuthService.requireAuth, async (req: Authentic
       await database.deleteOldestUserCrashLog(userId)
     }
 
-    // Redact IP addresses from content before storing
-    const sanitizedContent = content.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[REDACTED]')
+    // Sanitize content by redacting sensitive information
+    const sanitizedContent = sanitizeContent(content)
 
     const crashLog = {
       id,
