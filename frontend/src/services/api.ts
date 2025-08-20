@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { CrashLog, SearchResponse, CreateCrashResponse, SearchParams } from '../types'
+import type { CrashLog, SearchResponse, CreateCrashResponse, SearchParams, LogFile } from '../types'
 
 const api = axios.create({
   baseURL: '/api',
@@ -16,8 +16,8 @@ api.interceptors.request.use((config) => {
 })
 
 export class ApiService {
-  static async createCrashLog(content: string, title?: string): Promise<CreateCrashResponse> {
-    const response = await api.post('/crashes', { content, title })
+  static async createCrashLog(files: LogFile[], title?: string, description?: string): Promise<CreateCrashResponse> {
+    const response = await api.post('/crashes', { files, title, description })
     return response.data
   }
 

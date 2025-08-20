@@ -18,7 +18,8 @@ export class Database {
       CREATE TABLE IF NOT EXISTS crash_logs (
         id TEXT PRIMARY KEY,
         title TEXT,
-        content TEXT NOT NULL,
+        files TEXT NOT NULL,  -- JSON array of LogFile objects
+        description TEXT,
         minecraft_version TEXT,
         mod_loader TEXT,
         mod_loader_version TEXT,
@@ -26,6 +27,8 @@ export class Database {
         error_type TEXT,
         error_message TEXT,
         stack_trace TEXT,
+        culprit_mod TEXT,
+        user_id TEXT NOT NULL,
         ip_address TEXT NOT NULL,
         user_agent TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -34,23 +37,21 @@ export class Database {
       )
     `)
 
-    // Add culprit_mod column if it doesn't exist (migration)
-    try {
-      await run(`ALTER TABLE crash_logs ADD COLUMN culprit_mod TEXT`)
-    } catch (error: any) {
-      // Column already exists or other error - ignore
-      if (!error.message.includes('duplicate column name')) {
-        console.log('Migration note:', error.message)
-      }
-    }
-
-    // Add user_id column if it doesn't exist (migration)
-    try {
-      await run(`ALTER TABLE crash_logs ADD COLUMN user_id TEXT`)
-    } catch (error: any) {
-      // Column already exists or other error - ignore
-      if (!error.message.includes('duplicate column name')) {
-        console.log('Migration note:', error.message)
+    // Migration: Add new columns for multi-file support
+    const migrations = [
+      'files TEXT',
+      'description TEXT',
+      'culprit_mod TEXT',
+      'user_id TEXT'
+    ]
+    
+    for (const migration of migrations) {
+      try {
+        await run(`ALTER TABLE crash_logs ADD COLUMN ${migration}`)
+      } catch (error: any) {
+        if (!error.message.includes('duplicate column name')) {
+          console.log('Migration note:', error.message)
+        }
       }
     }
 
@@ -87,7 +88,8 @@ export class Database {
     await run(`
       CREATE VIRTUAL TABLE IF NOT EXISTS crash_logs_fts USING fts5(
         id UNINDEXED,
-        content,
+        files,
+        description,
         error_message,
         mod_list,
         tags,
@@ -147,16 +149,17 @@ export class Database {
     await new Promise<void>((resolve, reject) => {
       const stmt = this.db.prepare(`
         INSERT INTO crash_logs (
-          id, title, content, minecraft_version, mod_loader, mod_loader_version,
+          id, title, files, description, minecraft_version, mod_loader, mod_loader_version,
           mod_list, error_type, error_message, stack_trace, culprit_mod, user_id, ip_address, user_agent,
           expires_at, tags
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
       stmt.run([
         crashLog.id,
         crashLog.title,
-        crashLog.content,
+        JSON.stringify(crashLog.files),
+        crashLog.description,
         crashLog.minecraftVersion,
         crashLog.modLoader,
         crashLog.modLoaderVersion,
@@ -368,7 +371,8 @@ export class Database {
     return {
       id: row.id,
       title: row.title,
-      content: row.content,
+      files: JSON.parse(row.files || '[]'),
+      description: row.description,
       minecraftVersion: row.minecraft_version,
       modLoader: row.mod_loader,
       modLoaderVersion: row.mod_loader_version,

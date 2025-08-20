@@ -1,7 +1,15 @@
+export interface LogFile {
+  name: string
+  content: string
+  type: 'latest' | 'crash' | 'debug' | 'other'
+  size: number
+}
+
 export interface CrashLog {
   id: string
   title?: string
-  content: string
+  files: LogFile[]
+  description?: string
   minecraftVersion?: string
   modLoader?: string
   modLoaderVersion?: string
@@ -20,6 +28,7 @@ export interface CrashLog {
 export interface CrashLogSearchResult {
   id: string
   title?: string
+  description?: string
   minecraftVersion?: string
   modLoader?: string
   modLoaderVersion?: string
@@ -27,6 +36,7 @@ export interface CrashLogSearchResult {
   errorMessage?: string
   modList?: string[]
   culpritMod?: string
+  fileCount: number
   createdAt: Date
 }
 
@@ -50,4 +60,5 @@ export interface CreateCrashResponse {
   id: string
   url: string
   expiresAt: Date
+  fileCount: number
 }

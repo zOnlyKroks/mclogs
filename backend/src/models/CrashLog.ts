@@ -1,7 +1,15 @@
+export interface LogFile {
+  name: string
+  content: string
+  type: 'latest' | 'crash' | 'debug' | 'other'
+  size: number
+}
+
 export interface CrashLog {
   id: string
   title?: string
-  content: string
+  files: LogFile[]  // array of log files (latest.log + crash logs)
+  description?: string  // user comment/description
   minecraftVersion?: string
   modLoader?: string  // forge, fabric, quilt, neoforge
   modLoaderVersion?: string
@@ -10,7 +18,7 @@ export interface CrashLog {
   errorMessage?: string
   stackTrace?: string
   culpritMod?: string  // mod that likely caused the crash
-  userId?: string     // Google user ID (optional for backward compatibility)
+  userId: string
   ipAddress: string
   userAgent?: string
   createdAt: Date

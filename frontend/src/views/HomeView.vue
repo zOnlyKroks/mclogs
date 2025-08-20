@@ -1,21 +1,21 @@
 <template>
   <div class="home">
     <div class="hero">
-      <h1>Minecraft Crash Log Sharing</h1>
-      <p>Share and search Minecraft mod crash logs and stack traces</p>
+      <h1>Minecraft Log Bundle Sharing</h1>
+      <p>Upload multiple Minecraft logs (latest.log + crash logs) with comments</p>
       <div v-if="!authStore.isAuthenticated" class="hero-auth-prompt">
-        <p class="auth-benefit">🔐 Sign in with Google to manage your logs (max 10 per user)</p>
+        <p class="auth-benefit">🔐 Sign in with Google to manage your log bundles (max 10 per user)</p>
         <button @click="authStore.login" class="btn btn-auth-hero">
           Sign in with Google
         </button>
       </div>
       <div v-else class="hero-user-info">
         <p class="user-greeting">👋 Welcome back, {{ authStore.user?.name }}!</p>
-        <p class="user-info">You can submit up to 10 crash logs. Older ones will be automatically removed.</p>
+        <p class="user-info">You can submit up to 10 log bundles. Older ones will be automatically removed.</p>
       </div>
     </div>
 
-    <form @submit.prevent="submitCrash" class="crash-form">
+    <form @submit.prevent="submitLogs" class="crash-form">
       <div class="form-group">
         <label for="title" class="form-label">Title (optional)</label>
         <input
@@ -23,26 +23,66 @@
           v-model="form.title"
           type="text"
           class="form-input"
-          placeholder="Brief description of the crash"
+          placeholder="Brief description of the issue"
           maxlength="200"
         />
       </div>
 
       <div class="form-group">
-        <label for="content" class="form-label">Crash Log *</label>
+        <label for="description" class="form-label">Description/Comments (optional)</label>
         <textarea
-          id="content"
-          v-model="form.content"
-          class="form-textarea"
-          placeholder="Paste your crash log or stack trace here..."
-          required
-          rows="15"
+          id="description"
+          v-model="form.description"
+          class="form-textarea description-textarea"
+          placeholder="Describe what happened, what you were doing, any mods involved, etc..."
+          rows="4"
+          maxlength="1000"
         ></textarea>
+        <div class="char-counter">{{ form.description.length }}/1000</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Log Files *</label>
+        <div 
+          class="file-drop-zone"
+          :class="{ 'drag-over': isDragOver, 'has-files': files.length > 0 }"
+          @drop="handleDrop"
+          @dragover.prevent="isDragOver = true"
+          @dragleave.prevent="isDragOver = false"
+        >
+          <div v-if="files.length === 0" class="drop-zone-content">
+            <div class="drop-icon">📁</div>
+            <p class="drop-text">Drag and drop your log files here</p>
+            <p class="drop-subtext">or <button type="button" @click="triggerFileInput" class="file-link">browse files</button></p>
+            <p class="file-types">Supported: .log, .txt files (max 10 files, 5MB total)</p>
+          </div>
+          <div v-else class="files-list">
+            <div v-for="(file, index) in files" :key="index" class="file-item">
+              <div class="file-info">
+                <div class="file-name">{{ file.name }}</div>
+                <div class="file-details">
+                  <span class="file-type" :class="'type-' + file.type">{{ file.type }}</span>
+                  <span class="file-size">{{ formatFileSize(file.size) }}</span>
+                </div>
+              </div>
+              <button type="button" @click="removeFile(index)" class="remove-file">×</button>
+            </div>
+            <button type="button" @click="triggerFileInput" class="add-more-files">+ Add More Files</button>
+          </div>
+        </div>
+        <input 
+          ref="fileInput" 
+          type="file" 
+          multiple 
+          accept=".log,.txt" 
+          @change="handleFileInput" 
+          class="hidden-file-input"
+        />
       </div>
 
       <div class="form-actions">
-        <button type="submit" class="btn" :disabled="isSubmitting">
-          {{ isSubmitting ? 'Submitting...' : 'Submit Crash Log' }}
+        <button type="submit" class="btn" :disabled="isSubmitting || files.length === 0">
+          {{ isSubmitting ? 'Uploading...' : `Upload ${files.length} File${files.length !== 1 ? 's' : ''}` }}
         </button>
         <button 
           type="button" 
@@ -50,7 +90,7 @@
           class="btn btn-secondary"
           :disabled="isSubmitting"
         >
-          Clear Form
+          Clear All
         </button>
       </div>
     </form>
@@ -62,7 +102,7 @@
     <div v-if="result" class="result-card">
       <div class="result-header">
         <div class="success-icon">✅</div>
-        <h3>Crash log submitted successfully!</h3>
+        <h3>Log bundle uploaded successfully!</h3>
       </div>
       
       <div class="result-content">
@@ -79,16 +119,21 @@
         </div>
         
         <div class="result-row">
+          <span class="result-label">Files uploaded:</span>
+          <span class="result-value">{{ result.fileCount }} files</span>
+        </div>
+
+        <div class="result-row">
           <span class="result-label">Expires:</span>
           <span class="result-value">{{ formatExpirationDate(result.expiresAt) }}</span>
         </div>
 
         <div class="result-actions">
           <router-link :to="`/crash/${result.id}`" class="btn btn-primary">
-            View Crash Log
+            View Log Bundle
           </router-link>
           <button @click="clearForm" class="btn btn-secondary">
-            Submit Another
+            Upload Another
           </button>
         </div>
       </div>
@@ -96,23 +141,23 @@
 
     <div v-if="isSubmitting" class="loading-overlay">
       <div class="loading-spinner"></div>
-      <p>Processing crash log...</p>
+      <p>Processing log bundle...</p>
     </div>
 
     <div class="info-section">
       <h2>How it works</h2>
       <div class="info-grid">
         <div class="info-item">
-          <h3>1. Paste your crash log</h3>
-          <p>Copy the full crash log or stack trace from your Minecraft launcher</p>
+          <h3>1. Upload multiple logs</h3>
+          <p>Drag and drop your latest.log and any crash logs together</p>
         </div>
         <div class="info-item">
-          <h3>2. Automatic parsing</h3>
-          <p>We extract Minecraft version, mods, and error information automatically</p>
+          <h3>2. Add context</h3>
+          <p>Describe what happened and any relevant details</p>
         </div>
         <div class="info-item">
-          <h3>3. Share and search</h3>
-          <p>Get a shareable URL or search for similar crashes</p>
+          <h3>3. Share as bundle</h3>
+          <p>Get a single URL that contains all your logs and comments</p>
         </div>
       </div>
     </div>
@@ -123,11 +168,11 @@
 import { ref, reactive, computed } from 'vue'
 import { ApiService } from '../services/api'
 import { useAuthStore } from '../stores/auth'
-import type { CreateCrashResponse } from '../types'
+import type { CreateCrashResponse, LogFile } from '../types'
 
 const form = reactive({
   title: '',
-  content: ''
+  description: ''
 })
 
 const authStore = useAuthStore()
@@ -135,8 +180,10 @@ const isSubmitting = ref(false)
 const error = ref('')
 const result = ref<CreateCrashResponse | null>(null)
 const urlCopied = ref(false)
+const files = ref<LogFile[]>([])
+const isDragOver = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
 
-// Computed property for the share URL
 const shareUrl = computed(() => {
   if (result.value) {
     return `${window.location.origin}/crash/${result.value.id}`
@@ -144,9 +191,96 @@ const shareUrl = computed(() => {
   return ''
 })
 
-const submitCrash = async () => {
-  if (!form.content.trim()) {
-    error.value = 'Please enter a crash log'
+const detectLogType = (filename: string): LogFile['type'] => {
+  const lower = filename.toLowerCase()
+  if (lower.includes('latest')) return 'latest'
+  if (lower.includes('crash')) return 'crash'
+  if (lower.includes('debug')) return 'debug'
+  return 'other'
+}
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
+
+const readFileContent = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsText(file)
+  })
+}
+
+const processFiles = async (fileList: FileList) => {
+  const newFiles: LogFile[] = []
+  let totalSize = files.value.reduce((sum, f) => sum + f.size, 0)
+
+  for (const file of Array.from(fileList)) {
+    if (files.value.length + newFiles.length >= 10) {
+      error.value = 'Maximum 10 files allowed'
+      break
+    }
+
+    if (file.size > 2000000) {
+      error.value = `File ${file.name} is too large (max 2MB per file)`
+      continue
+    }
+
+    totalSize += file.size
+    if (totalSize > 5000000) {
+      error.value = 'Total file size exceeds 5MB limit'
+      break
+    }
+
+    try {
+      const content = await readFileContent(file)
+      newFiles.push({
+        name: file.name,
+        content,
+        type: detectLogType(file.name),
+        size: file.size
+      })
+    } catch (err) {
+      error.value = `Failed to read file ${file.name}`
+    }
+  }
+
+  files.value.push(...newFiles)
+}
+
+const handleDrop = (event: DragEvent) => {
+  event.preventDefault()
+  isDragOver.value = false
+  
+  if (event.dataTransfer?.files) {
+    processFiles(event.dataTransfer.files)
+  }
+}
+
+const handleFileInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (target.files) {
+    processFiles(target.files)
+    target.value = '' // Reset input
+  }
+}
+
+const triggerFileInput = () => {
+  fileInput.value?.click()
+}
+
+const removeFile = (index: number) => {
+  files.value.splice(index, 1)
+}
+
+const submitLogs = async () => {
+  if (files.value.length === 0) {
+    error.value = 'Please select at least one log file'
     return
   }
 
@@ -156,13 +290,15 @@ const submitCrash = async () => {
 
   try {
     const response = await ApiService.createCrashLog(
-      form.content.trim(),
-      form.title.trim() || undefined
+      files.value,
+      form.title.trim() || undefined,
+      form.description.trim() || undefined
     )
     result.value = response
 
-    form.content = ''
     form.title = ''
+    form.description = ''
+    files.value = []
     
     setTimeout(() => {
       const resultElement = document.querySelector('.result-card')
@@ -171,15 +307,16 @@ const submitCrash = async () => {
       }
     }, 100)
   } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to submit crash log'
+    error.value = err.response?.data?.error || 'Failed to upload log bundle'
   } finally {
     isSubmitting.value = false
   }
 }
 
 const clearForm = () => {
-  form.content = ''
   form.title = ''
+  form.description = ''
+  files.value = []
   result.value = null
   error.value = ''
 }
@@ -199,7 +336,7 @@ const copyToClipboard = async () => {
   }
 }
 
-const formatExpirationDate = (dateString: Date |string) => {
+const formatExpirationDate = (dateString: Date | string) => {
   const date = new Date(dateString)
   const now = new Date()
   const diffTime = date.getTime() - now.getTime()
@@ -289,8 +426,178 @@ const formatExpirationDate = (dateString: Date |string) => {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
-.form-textarea {
-  min-height: 300px;
+.description-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.char-counter {
+  text-align: right;
+  font-size: 0.875rem;
+  color: #6c757d;
+  margin-top: 0.25rem;
+}
+
+.file-drop-zone {
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  background: #f8f9fa;
+}
+
+.file-drop-zone.drag-over {
+  border-color: #42b883;
+  background: rgba(66, 184, 131, 0.05);
+}
+
+.file-drop-zone.has-files {
+  border-style: solid;
+  border-color: #42b883;
+  background: rgba(66, 184, 131, 0.02);
+}
+
+.drop-zone-content {
+  pointer-events: none;
+}
+
+.drop-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.drop-text {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #2c3e50;
+}
+
+.drop-subtext {
+  color: #6c757d;
+  margin-bottom: 1rem;
+}
+
+.file-link {
+  color: #42b883;
+  background: none;
+  border: none;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.file-link:hover {
+  color: #369870;
+}
+
+.file-types {
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+.files-list {
+  text-align: left;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  background: white;
+}
+
+.file-info {
+  flex: 1;
+}
+
+.file-name {
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 0.25rem;
+}
+
+.file-details {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+
+.file-type {
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.type-latest {
+  background: #d4edda;
+  color: #155724;
+}
+
+.type-crash {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.type-debug {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.type-other {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
+.file-size {
+  color: #6c757d;
+}
+
+.remove-file {
+  background: #dc3545;
+  color: white;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.remove-file:hover {
+  background: #c82333;
+}
+
+.add-more-files {
+  background: #42b883;
+  color: white;
+  border: none;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  margin-top: 1rem;
+  transition: background 0.2s;
+}
+
+.add-more-files:hover {
+  background: #369870;
+}
+
+.hidden-file-input {
+  display: none;
 }
 
 .form-actions {
@@ -489,6 +796,15 @@ const formatExpirationDate = (dateString: Date |string) => {
   .crash-form {
     padding: 1rem;
     margin: 0 0 2rem 0;
+  }
+  
+  .file-drop-zone {
+    padding: 1rem;
+  }
+  
+  .url-container {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 </style>

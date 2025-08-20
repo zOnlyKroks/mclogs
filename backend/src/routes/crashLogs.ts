@@ -40,21 +40,43 @@ const searchRateLimit = rateLimit({
 
 router.post('/', createRateLimit, AuthService.requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const { content, title } = req.body
+    const { files, title, description } = req.body
 
-    if (!content || typeof content !== 'string') {
-      return res.status(400).json({ error: 'Content is required' })
+    if (!files || !Array.isArray(files) || files.length === 0) {
+      return res.status(400).json({ error: 'At least one log file is required' })
     }
 
-    if (content.length > 1000000) {
-      return res.status(400).json({ error: 'Content too large' })
+    if (files.length > 10) {
+      return res.status(400).json({ error: 'Too many files (max 10)' })
+    }
+
+    let totalSize = 0
+    const processedFiles = files.map((file: any) => {
+      if (!file.name || !file.content || !file.type) {
+        throw new Error('Invalid file format')
+      }
+      
+      if (file.content.length > 2000000) {
+        throw new Error(`File ${file.name} is too large (max 2MB per file)`)
+      }
+      
+      totalSize += file.content.length
+      
+      return {
+        name: file.name.substring(0, 100),
+        content: sanitizeContent(file.content),
+        type: file.type,
+        size: file.content.length
+      }
+    })
+
+    if (totalSize > 5000000) {
+      return res.status(400).json({ error: 'Total file size too large (max 5MB)' })
     }
 
     const id = uuidv4()
-    const parsedData = CrashParser.parse(content)
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-
     const userId = req.user!.id
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     
     const userLogCount = await database.getUserCrashLogCount(userId)
     
@@ -62,16 +84,18 @@ router.post('/', createRateLimit, AuthService.requireAuth, async (req: Authentic
       await database.deleteOldestUserCrashLog(userId)
     }
 
-    // Sanitize content by redacting sensitive information
-    const sanitizedContent = sanitizeContent(content)
+    // Parse the primary log file (latest.log or first crash file)
+    const primaryFile = processedFiles.find(f => f.type === 'latest') || processedFiles[0]
+    const parsedData = CrashParser.parse(primaryFile.content)
 
     const crashLog = {
       id,
-      title: title?.substring(0, 200) || `Crash ${new Date().toISOString().split('T')[0]}`,
-      content: sanitizedContent,
+      title: title?.substring(0, 200) || `Log Report ${new Date().toISOString().split('T')[0]}`,
+      files: processedFiles,
+      description: description?.substring(0, 1000),
       ...parsedData,
       userId,
-      ipAddress: '[REDACTED]', // Always redact IP addresses before storage
+      ipAddress: '[REDACTED]',
       userAgent: req.get('User-Agent'),
       expiresAt
     }
@@ -81,11 +105,13 @@ router.post('/', createRateLimit, AuthService.requireAuth, async (req: Authentic
     res.status(201).json({
       id,
       url: `/crash/${id}`,
-      expiresAt
+      expiresAt,
+      fileCount: processedFiles.length
     })
   } catch (error) {
     console.error('Error creating crash log:', error)
-    res.status(500).json({ error: 'Internal server error' })
+    const message = error instanceof Error ? error.message : 'Internal server error'
+    res.status(500).json({ error: message })
   }
 })
 
@@ -142,12 +168,14 @@ router.get('/', searchRateLimit, async (req, res) => {
     const sanitizedLogs = crashLogs.map(log => ({
       id: log.id,
       title: log.title,
+      description: log.description?.substring(0, 200),
       minecraftVersion: log.minecraftVersion,
       modLoader: log.modLoader,
       modLoaderVersion: log.modLoaderVersion,
       errorType: log.errorType,
       errorMessage: log.errorMessage?.substring(0, 200),
       modList: log.modList?.slice(0, 10),
+      fileCount: log.files?.length || 0,
       createdAt: log.createdAt,
     }))
 
