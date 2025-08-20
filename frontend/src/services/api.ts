@@ -6,6 +6,15 @@ const api = axios.create({
   timeout: 30000
 })
 
+// Ensure the api instance inherits auth headers from global axios defaults
+api.interceptors.request.use((config) => {
+  const authHeader = axios.defaults.headers.common['Authorization']
+  if (authHeader && !config.headers['Authorization']) {
+    config.headers['Authorization'] = authHeader
+  }
+  return config
+})
+
 export class ApiService {
   static async createCrashLog(content: string, title?: string): Promise<CreateCrashResponse> {
     const response = await api.post('/crashes', { content, title })
