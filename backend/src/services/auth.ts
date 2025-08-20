@@ -77,24 +77,23 @@ export class AuthService {
     )
   }
 
-  static verifyJWT(token: string): User | null {
+  static async verifyJWT(token: string): Promise<User | null> {
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as any
-      return {
-        id: decoded.id,
-        googleId: decoded.googleId,
-        email: decoded.email,
-        name: decoded.name,
-        picture: decoded.picture,
-        createdAt: new Date(), // We don't store these in JWT
-        lastLogin: new Date()
+      
+      // Get the full user data from database with correct createdAt and lastLogin
+      const user = await database.findUserByGoogleId(decoded.googleId)
+      if (!user) {
+        return null
       }
+      
+      return user
     } catch {
       return null
     }
   }
 
-  static requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  static async requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
     const authHeader = req.headers.authorization
     const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null
 
@@ -102,7 +101,7 @@ export class AuthService {
       return res.status(401).json({ error: 'Authentication required' })
     }
 
-    const user = AuthService.verifyJWT(token)
+    const user = await AuthService.verifyJWT(token)
     if (!user) {
       return res.status(401).json({ error: 'Invalid or expired token' })
     }
@@ -111,12 +110,12 @@ export class AuthService {
     next()
   }
 
-  static optionalAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  static async optionalAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
     const authHeader = req.headers.authorization
     const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null
 
     if (token) {
-      const user = AuthService.verifyJWT(token)
+      const user = await AuthService.verifyJWT(token)
       if (user) {
         req.user = user
       }
