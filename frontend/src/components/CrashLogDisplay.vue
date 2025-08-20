@@ -69,7 +69,7 @@
                 :id="`line-${index + 1}`"
                 class="line-number"
                 :title="`Click to copy link to line ${index + 1} in ${currentFile.name}`"
-                @click="() => handleLineClick(index + 1)"
+                @click.stop="handleLineClick(index + 1)"
               >
                 {{ index + 1 }}
               </span>
@@ -146,24 +146,28 @@ const formatFileSize = (bytes: number): string => {
 const handleLineClick = async (lineNumber: number) => {
   console.log('Line clicked:', lineNumber)
   
-  // Copy permalink
-  await copyPermalink(lineNumber)
-  
-  // Highlight the clicked line
-  const element = document.getElementById(`line-${lineNumber}`)
-  if (element) {
-    // Remove any existing highlights
-    document.querySelectorAll('.line-number.highlighted-line').forEach(el => {
-      el.classList.remove('highlighted-line')
-    })
+  try {
+    // Copy permalink
+    await copyPermalink(lineNumber)
     
-    // Add highlight to clicked line
-    element.classList.add('highlighted-line')
-    setTimeout(() => element.classList.remove('highlighted-line'), 3000)
-    
-    // Update URL without reload
-    const newUrl = `${window.location.pathname}?file=${activeFileIndex.value}#line-${lineNumber}`
-    window.history.replaceState({}, '', newUrl)
+    // Highlight the clicked line
+    const element = document.getElementById(`line-${lineNumber}`)
+    if (element) {
+      // Remove any existing highlights
+      document.querySelectorAll('.line-number.highlighted-line').forEach(el => {
+        el.classList.remove('highlighted-line')
+      })
+      
+      // Add highlight to clicked line
+      element.classList.add('highlighted-line')
+      setTimeout(() => element.classList.remove('highlighted-line'), 3000)
+      
+      // Update URL without reload
+      const newUrl = `${window.location.pathname}?file=${activeFileIndex.value}#line-${lineNumber}`
+      window.history.replaceState({}, '', newUrl)
+    }
+  } catch (error) {
+    console.error('Error handling line click:', error)
   }
 }
 
@@ -521,8 +525,6 @@ onMounted(async () => {
   min-width: 4rem;
   text-align: right;
   flex-shrink: 0;
-  position: relative;
-  z-index: 1;
 }
 
 .line-number {
@@ -534,8 +536,6 @@ onMounted(async () => {
   cursor: pointer;
   user-select: none;
   pointer-events: auto;
-  position: relative;
-  z-index: 2;
 }
 
 .line-number:hover {
@@ -548,6 +548,7 @@ onMounted(async () => {
   background: #fff3cd !important;
   color: #856404 !important;
   border-left: 3px solid #ffc107;
+  pointer-events: auto !important;
 }
 
 .code-content {
