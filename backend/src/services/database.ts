@@ -228,6 +228,12 @@ export class Database {
     return this.rowToCrashLog(row)
   }
 
+  private escapeFTS5Query(query: string): string {
+    // FTS5 query escaping - wrap in double quotes to treat as phrase
+    // This prevents syntax errors from special characters like dots
+    return `"${query.replace(/"/g, '""')}"`
+  }
+
   async searchCrashLogs(params: CrashLogSearchParams): Promise<CrashLog[]> {
     const all = (sql: string, params: any[]) => 
       new Promise<any[]>((resolve, reject) => {
@@ -245,7 +251,7 @@ export class Database {
         JOIN crash_logs_fts fts ON cl.rowid = fts.rowid
         WHERE crash_logs_fts MATCH ?
       `
-      values.push(params.q)
+      values.push(this.escapeFTS5Query(params.q))
     }
 
     if (params.minecraftVersion) {

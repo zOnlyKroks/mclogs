@@ -135,18 +135,56 @@ const highlightCode = () => {
 }
 
 const highlightCrashLog = (content: string): string => {
-  return content
-    .replace(/(Exception|Error)(\s*:.*)?$/gm, '<span class="hljs-exception">$1$2</span>')
-    .replace(/^\s*at\s+(.+)$/gm, '<span class="hljs-stacktrace">at $1</span>')
-    .replace(/^\s*Caused by:\s*(.+)$/gm, '<span class="hljs-caused-by">Caused by: $1</span>')
-    .replace(/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/g, '<span class="hljs-timestamp">$1</span>')
-    .replace(/(\[[\d:]+\])/g, '<span class="hljs-timestamp">$1</span>')
-    .replace(/(WARN|ERROR|FATAL|INFO|DEBUG)/g, '<span class="hljs-log-level hljs-log-$1">$1</span>')
-    .replace(/(minecraft|forge|fabric|quilt|neoforge)/gi, '<span class="hljs-platform">$1</span>')
-    .replace(/(\w+\.jar)/g, '<span class="hljs-jar">$1</span>')
-    .replace(/(java\.lang\.\w+)/g, '<span class="hljs-java-class">$1</span>')
-    .replace(/(\w+\.\w+\.\w+)/g, '<span class="hljs-package">$1</span>')
+  // Enhanced crash log highlighting with better patterns
+  let highlighted = content
+    // Escape HTML first
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    
+    // Exceptions and errors (more specific patterns)
+    .replace(/((?:java\.lang\.|net\.minecraft\.|mod\w*\.)\w*(?:Exception|Error))(\s*:.*)?$/gm, '<span class="hljs-exception">$1</span><span class="hljs-error-message">$2</span>')
+    
+    // Stack trace lines with better detection
+    .replace(/^\s*(at\s+)([\w.$]+)\((.*?)\)(\s*~?\[.*?\])?$/gm, '<span class="hljs-stacktrace-at">$1</span><span class="hljs-method">$2</span>(<span class="hljs-source">$3</span>)<span class="hljs-mod-info">$4</span>')
+    
+    // Caused by lines
+    .replace(/^(\s*Caused by:\s*)(.+)$/gm, '<span class="hljs-caused-by">$1</span><span class="hljs-exception">$2</span>')
+    
+    // Timestamps (multiple formats)
+    .replace(/(\d{4}[-/]\d{2}[-/]\d{2}[\s_T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)/g, '<span class="hljs-timestamp">$1</span>')
+    .replace(/(\[\d{2}:\d{2}:\d{2}\])/g, '<span class="hljs-timestamp">$1</span>')
+    
+    // Log levels with context
+    .replace(/(\[?\b(?:TRACE|DEBUG|INFO|WARN|ERROR|FATAL)\b\]?)/gi, '<span class="hljs-log-level hljs-log-$1">$1</span>')
+    
+    // Minecraft/mod platform indicators
+    .replace(/\b(minecraft|forge|fabric|quilt|neoforge|modloader)\b/gi, '<span class="hljs-platform">$1</span>')
+    
+    // JAR files and mods
+    .replace(/\b(\w+(?:-\w+)*(?:-\d+(?:\.\d+)*(?:\w+)?)?\.jar)\b/g, '<span class="hljs-jar">$1</span>')
+    
+    // Java classes and packages
+    .replace(/\b(java\.[\w.]+)\b/g, '<span class="hljs-java-class">$1</span>')
+    .replace(/\b(net\.minecraft\.[\w.]+)\b/g, '<span class="hljs-minecraft-class">$1</span>')
+    
+    // Mod classes (common patterns)
+    .replace(/\b((?:net\.)?mod\w*\.[\w.]+)\b/g, '<span class="hljs-mod-class">$1</span>')
+    
+    // File paths
+    .replace(/([A-Z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]*)/g, '<span class="hljs-file-path">$1</span>')
+    .replace(/(\/(?:[^\/\0\r\n]+\/)*[^\/\0\r\n]*)/g, '<span class="hljs-file-path">$1</span>')
+    
+    // Redacted information
     .replace(/(\[REDACTED_\w+\])/g, '<span class="hljs-redacted">$1</span>')
+    
+    // Memory addresses and hex values
+    .replace(/\b(0x[a-fA-F0-9]+)\b/g, '<span class="hljs-hex">$1</span>')
+    
+    // Version numbers
+    .replace(/\b(\d+\.\d+(?:\.\d+)*(?:-\w+)?)\b/g, '<span class="hljs-version">$1</span>')
+
+  return highlighted
 }
 
 const copyToClipboard = async () => {
@@ -378,6 +416,13 @@ onMounted(async () => {
 .file-content-body {
   max-height: 70vh;
   overflow: auto;
+  background: #fafafa;
+  /* Fix background on horizontal scroll */
+  background-attachment: local;
+  /* Improve scrolling on touch devices */
+  -webkit-overflow-scrolling: touch;
+  /* Fix scroll momentum issues */
+  overscroll-behavior: contain;
 }
 
 .file-content-body pre {
@@ -386,11 +431,16 @@ onMounted(async () => {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 0.875rem;
   line-height: 1.5;
-  background: #fafafa;
+  background: transparent;
+  /* Ensure content extends beyond container width */
+  min-width: 100%;
+  width: max-content;
 }
 
 .file-content-body code {
   background: none;
+  white-space: pre;
+  word-wrap: normal;
 }
 
 .metadata-section {
@@ -430,72 +480,133 @@ onMounted(async () => {
   font-size: 0.875rem;
 }
 
-/* Custom highlighting styles */
+/* Enhanced crash log highlighting styles */
 :deep(.hljs-exception) {
   color: #d73a49;
-  font-weight: bold;
+  font-weight: 600;
 }
 
-:deep(.hljs-stacktrace) {
+:deep(.hljs-error-message) {
+  color: #c53030;
+}
+
+:deep(.hljs-stacktrace-at) {
+  color: #6c757d;
+  font-weight: 500;
+}
+
+:deep(.hljs-method) {
   color: #6f42c1;
+  font-weight: 500;
+}
+
+:deep(.hljs-source) {
+  color: #032f62;
+}
+
+:deep(.hljs-mod-info) {
+  color: #e36209;
+  font-style: italic;
 }
 
 :deep(.hljs-caused-by) {
   color: #e36209;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 :deep(.hljs-timestamp) {
   color: #005cc5;
+  font-weight: 500;
 }
 
 :deep(.hljs-log-level) {
-  font-weight: bold;
+  font-weight: 600;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+:deep(.hljs-log-TRACE) {
+  color: #9ca3af;
+  background: #f9fafb;
+}
+
+:deep(.hljs-log-DEBUG) {
+  color: #6b7280;
+  background: #f3f4f6;
+}
+
+:deep(.hljs-log-INFO) {
+  color: #059669;
+  background: #ecfdf5;
+}
+
+:deep(.hljs-log-WARN) {
+  color: #d97706;
+  background: #fffbeb;
 }
 
 :deep(.hljs-log-ERROR),
 :deep(.hljs-log-FATAL) {
-  color: #d73a49;
-}
-
-:deep(.hljs-log-WARN) {
-  color: #e36209;
-}
-
-:deep(.hljs-log-INFO) {
-  color: #28a745;
-}
-
-:deep(.hljs-log-DEBUG) {
-  color: #6c757d;
+  color: #dc2626;
+  background: #fef2f2;
 }
 
 :deep(.hljs-platform) {
-  color: #005cc5;
-  font-weight: bold;
+  color: #0891b2;
+  font-weight: 600;
+  background: #f0f9ff;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
 }
 
 :deep(.hljs-jar) {
-  color: #032f62;
-  background: #f6f8fa;
-  padding: 0.1em 0.3em;
-  border-radius: 3px;
+  color: #7c3aed;
+  background: #f5f3ff;
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+  font-weight: 500;
 }
 
 :deep(.hljs-java-class) {
-  color: #d73a49;
+  color: #b91c1c;
+  font-weight: 500;
 }
 
-:deep(.hljs-package) {
-  color: #6f42c1;
+:deep(.hljs-minecraft-class) {
+  color: #059669;
+  font-weight: 500;
+}
+
+:deep(.hljs-mod-class) {
+  color: #7c2d12;
+  font-weight: 500;
+}
+
+:deep(.hljs-file-path) {
+  color: #4b5563;
+  background: #f9fafb;
+  padding: 0.1em 0.2em;
+  border-radius: 2px;
+  font-family: inherit;
+}
+
+:deep(.hljs-hex) {
+  color: #7c3aed;
+  font-family: inherit;
+}
+
+:deep(.hljs-version) {
+  color: #0891b2;
+  font-weight: 500;
 }
 
 :deep(.hljs-redacted) {
-  color: #dc3545;
-  background: rgba(220, 53, 69, 0.1);
-  padding: 0.1em 0.3em;
-  border-radius: 3px;
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
   font-style: italic;
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {
