@@ -135,56 +135,62 @@ const highlightCode = () => {
 }
 
 const highlightCrashLog = (content: string): string => {
-  // Enhanced crash log highlighting with better patterns
-  let highlighted = content
-    // Escape HTML first
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+  // Simple but robust highlighting that avoids regex conflicts
+  const lines = content.split('\n')
+  
+  return lines.map(line => {
+    // Skip if line is empty
+    if (!line.trim()) return line
     
-    // Exceptions and errors (more specific patterns)
-    .replace(/((?:java\.lang\.|net\.minecraft\.|mod\w*\.)\w*(?:Exception|Error))(\s*:.*)?$/gm, '<span class="hljs-exception">$1</span><span class="hljs-error-message">$2</span>')
+    // Exception/Error lines
+    if (/(?:Exception|Error)\s*:/i.test(line)) {
+      return line.replace(/(.*?)((?:Exception|Error))(\s*:.*)/i, 
+        '$1<span class="hljs-exception">$2</span><span class="hljs-error-message">$3</span>')
+    }
     
-    // Stack trace lines with better detection
-    .replace(/^\s*(at\s+)([\w.$]+)\((.*?)\)(\s*~?\[.*?\])?$/gm, '<span class="hljs-stacktrace-at">$1</span><span class="hljs-method">$2</span>(<span class="hljs-source">$3</span>)<span class="hljs-mod-info">$4</span>')
+    // Stack trace lines
+    if (/^\s*at\s+/.test(line)) {
+      return line.replace(/^(\s*)(at\s+)([\w.$]+)(\([^)]*\))(.*)/, 
+        '$1<span class="hljs-stacktrace-at">$2</span><span class="hljs-method">$3</span>$4<span class="hljs-mod-info">$5</span>')
+    }
     
     // Caused by lines
-    .replace(/^(\s*Caused by:\s*)(.+)$/gm, '<span class="hljs-caused-by">$1</span><span class="hljs-exception">$2</span>')
+    if (/^\s*Caused by:/i.test(line)) {
+      return line.replace(/^(\s*Caused by:\s*)(.+)/i, 
+        '<span class="hljs-caused-by">$1</span><span class="hljs-exception">$2</span>')
+    }
     
-    // Timestamps (multiple formats)
-    .replace(/(\d{4}[-/]\d{2}[-/]\d{2}[\s_T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)/g, '<span class="hljs-timestamp">$1</span>')
-    .replace(/(\[\d{2}:\d{2}:\d{2}\])/g, '<span class="hljs-timestamp">$1</span>')
+    // Otherwise apply simple highlighting
+    let highlighted = line
     
-    // Log levels with context
-    .replace(/(\[?\b(?:TRACE|DEBUG|INFO|WARN|ERROR|FATAL)\b\]?)/gi, '<span class="hljs-log-level hljs-log-$1">$1</span>')
+    // Timestamps
+    highlighted = highlighted.replace(/(\d{4}[-/]\d{2}[-/]\d{2}[\s_T]\d{2}:\d{2}:\d{2}(?:\.\d+)?)/g, 
+      '<span class="hljs-timestamp">$1</span>')
+    highlighted = highlighted.replace(/(\[\d{2}:\d{2}:\d{2}\])/g, 
+      '<span class="hljs-timestamp">$1</span>')
     
-    // Minecraft/mod platform indicators
-    .replace(/\b(minecraft|forge|fabric|quilt|neoforge|modloader)\b/gi, '<span class="hljs-platform">$1</span>')
+    // Log levels
+    highlighted = highlighted.replace(/\b(TRACE|DEBUG|INFO|WARN|ERROR|FATAL)\b/gi, 
+      '<span class="hljs-log-level hljs-log-$1">$1</span>')
     
-    // JAR files and mods
-    .replace(/\b(\w+(?:-\w+)*(?:-\d+(?:\.\d+)*(?:\w+)?)?\.jar)\b/g, '<span class="hljs-jar">$1</span>')
+    // Platform indicators
+    highlighted = highlighted.replace(/\b(minecraft|forge|fabric|quilt|neoforge|modloader)\b/gi, 
+      '<span class="hljs-platform">$1</span>')
     
-    // Java classes and packages
-    .replace(/\b(java\.[\w.]+)\b/g, '<span class="hljs-java-class">$1</span>')
-    .replace(/\b(net\.minecraft\.[\w.]+)\b/g, '<span class="hljs-minecraft-class">$1</span>')
+    // JAR files
+    highlighted = highlighted.replace(/(\w+(?:-[\w.]+)*\.jar)\b/g, 
+      '<span class="hljs-jar">$1</span>')
     
-    // Mod classes (common patterns)
-    .replace(/\b((?:net\.)?mod\w*\.[\w.]+)\b/g, '<span class="hljs-mod-class">$1</span>')
+    // Version numbers (be more specific to avoid conflicts)
+    highlighted = highlighted.replace(/\b(\d+\.\d+\.\d+(?:\.\d+)*(?:[+-]\w+)?)\b/g, 
+      '<span class="hljs-version">$1</span>')
     
-    // File paths
-    .replace(/([A-Z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]*)/g, '<span class="hljs-file-path">$1</span>')
-    .replace(/(\/(?:[^\/\0\r\n]+\/)*[^\/\0\r\n]*)/g, '<span class="hljs-file-path">$1</span>')
+    // Redacted info
+    highlighted = highlighted.replace(/(\[REDACTED_\w+\])/g, 
+      '<span class="hljs-redacted">$1</span>')
     
-    // Redacted information
-    .replace(/(\[REDACTED_\w+\])/g, '<span class="hljs-redacted">$1</span>')
-    
-    // Memory addresses and hex values
-    .replace(/\b(0x[a-fA-F0-9]+)\b/g, '<span class="hljs-hex">$1</span>')
-    
-    // Version numbers
-    .replace(/\b(\d+\.\d+(?:\.\d+)*(?:-\w+)?)\b/g, '<span class="hljs-version">$1</span>')
-
-  return highlighted
+    return highlighted
+  }).join('\n')
 }
 
 const copyToClipboard = async () => {
