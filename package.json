@@ -1,0 +1,29 @@
+{
+  "name": "mclogs",
+  "version": "1.0.0",
+  "description": "Minecraft crash log sharing site",
+  "scripts": {
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
+    "build": "cd backend && npm run build && cd ../frontend && npm run build",
+    "start": "cd backend && npm start",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "test": "cd backend && npm test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "vue-tsc": "^1.8.27"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/mclogs.git"
+  },
+  "keywords": [
+    "minecraft",
+    "crash",
+    "logs",
+    "mods",
+    "debugging"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
