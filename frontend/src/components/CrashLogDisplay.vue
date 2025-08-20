@@ -225,9 +225,9 @@ const highlightCrashLog = (content: string): string => {
     // Skip if line is empty
     if (!line.trim()) return line
     
-    // Exception/Error lines
-    if (/(?:Exception|Error)\s*:/i.test(line)) {
-      return line.replace(/(.*?)((?:Exception|Error))(\s*:.*)/i, 
+    // Exception/Error lines (including those in "Caused by:" lines)
+    if (/(?:Exception|Error)(?:\s*:|$)/i.test(line)) {
+      return line.replace(/(.*?)((?:java\.lang\.)?(?:\w+)?(?:Exception|Error))(\s*:.*|$)/i, 
         '$1<span class="hljs-exception">$2</span><span class="hljs-error-message">$3</span>')
     }
     
