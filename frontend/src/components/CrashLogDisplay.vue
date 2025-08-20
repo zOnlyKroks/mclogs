@@ -62,18 +62,17 @@
         
         <div class="file-content-body">
           <div class="code-container">
-            <div class="line-numbers" v-if="codeLines.length > 0">
-              <a 
+            <div class="line-numbers" v-if="codeLines.length > 0" @click="handleLineNumberClick">
+              <span 
                 v-for="(_, index) in codeLines" 
                 :key="`${activeFileIndex}-${index}`"
                 :id="`line-${index + 1}`"
-                :href="`?file=${activeFileIndex}#line-${index + 1}`"
+                :data-line="`${index + 1}`"
                 class="line-number"
-                @click.prevent="copyPermalink(index + 1)"
                 :title="`Click to copy link to line ${index + 1} in ${currentFile.name}`"
               >
                 {{ index + 1 }}
-              </a>
+              </span>
             </div>
             <pre ref="codeElement" class="code-content"><code v-html="highlightedContent"></code></pre>
           </div>
@@ -142,6 +141,16 @@ const formatFileSize = (bytes: number): string => {
   const sizes = ['B', 'KB', 'MB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
+
+const handleLineNumberClick = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  if (target.classList.contains('line-number')) {
+    const lineNumber = parseInt(target.dataset.line || '0')
+    if (lineNumber > 0) {
+      copyPermalink(lineNumber)
+    }
+  }
 }
 
 const copyPermalink = async (lineNumber: number) => {
@@ -494,11 +503,12 @@ onMounted(async () => {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 0.875rem;
   line-height: 1.5;
-  user-select: none;
   color: #6c757d;
   min-width: 4rem;
   text-align: right;
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .line-number {
@@ -508,6 +518,10 @@ onMounted(async () => {
   color: #6c757d;
   transition: all 0.2s ease;
   cursor: pointer;
+  user-select: none;
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
 }
 
 .line-number:hover {
