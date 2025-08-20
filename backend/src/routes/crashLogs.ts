@@ -21,7 +21,7 @@ const searchRateLimit = rateLimit({
   message: { error: 'Too many search requests, try again later.' }
 })
 
-router.post('/', createRateLimit, AuthService.optionalAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/', createRateLimit, AuthService.requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const { content, title } = req.body
 
@@ -37,15 +37,12 @@ router.post('/', createRateLimit, AuthService.optionalAuth, async (req: Authenti
     const parsedData = CrashParser.parse(content)
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
-    let userId: string | undefined
-    if (req.user) {
-      userId = req.user.id
-      
-      const userLogCount = await database.getUserCrashLogCount(userId)
-      
-      if (userLogCount >= 10) {
-        await database.deleteOldestUserCrashLog(userId)
-      }
+    const userId = req.user.id
+    
+    const userLogCount = await database.getUserCrashLogCount(userId)
+    
+    if (userLogCount >= 10) {
+      await database.deleteOldestUserCrashLog(userId)
     }
 
     const crashLog = {
