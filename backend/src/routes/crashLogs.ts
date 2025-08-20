@@ -172,7 +172,10 @@ router.get('/', searchRateLimit, async (req, res) => {
       errorType,
       mod,
       limit = 20,
-      offset = 0
+      offset = 0,
+      fuzzy,
+      phrase,
+      advanced
     } = req.query
 
     const searchParams = {
@@ -185,7 +188,20 @@ router.get('/', searchRateLimit, async (req, res) => {
       offset: Number(offset) || 0
     }
 
-    const crashLogs = await database.searchCrashLogs(searchParams)
+    let crashLogs: any[]
+
+    // Use advanced search if query is provided and advanced flag is set
+    if (searchParams.q && advanced === 'true') {
+      crashLogs = await database.advancedSearch(searchParams.q, {
+        fuzzy: fuzzy === 'true',
+        phrase: phrase === 'true',
+        maxResults: searchParams.limit,
+        minScore: 1
+      })
+    } else {
+      // Use traditional search
+      crashLogs = await database.searchCrashLogs(searchParams)
+    }
 
     const sanitizedLogs = crashLogs.map(log => ({
       id: log.id,
@@ -208,6 +224,17 @@ router.get('/', searchRateLimit, async (req, res) => {
     })
   } catch (error) {
     console.error('Error searching crash logs:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Search statistics endpoint
+router.get('/stats/search', async (req, res) => {
+  try {
+    const stats = database.getSearchStats()
+    res.json(stats)
+  } catch (error) {
+    console.error('Error getting search stats:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })

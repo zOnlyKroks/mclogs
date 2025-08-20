@@ -151,10 +151,32 @@ export class CrashParser {
       }
     }
 
-    // Extract stack trace (first 20 lines)
-    const stackTraceMatch = content.match(/(at\s+[\w.$]+[\s\S]*?)(?=\n\n|-- |$)/m)
-    if (stackTraceMatch) {
-      const lines = stackTraceMatch[1].split('\n').slice(0, 20)
+    // Extract stack trace - more comprehensive approach
+    let stackTrace = ''
+    
+    // Look for full exception with stack trace
+    const fullExceptionMatch = content.match(/((?:java\.lang\.|Exception|Error).*?(?:\n.*?at\s+.*?)*)(?=\n\n|-- |$)/ms)
+    if (fullExceptionMatch) {
+      stackTrace = fullExceptionMatch[1]
+    } else {
+      // Fallback: just look for stack trace lines
+      const stackTraceMatch = content.match(/(at\s+[\w.$]+[\s\S]*?)(?=\n\n|-- |$)/m)
+      if (stackTraceMatch) {
+        stackTrace = stackTraceMatch[1]
+      }
+    }
+    
+    // Also include Caused by exceptions
+    const causedByMatches = content.matchAll(/Caused by: (.*?(?:\n.*?at\s+.*?)*)/gms)
+    for (const match of causedByMatches) {
+      if (match[1]) {
+        stackTrace += '\nCaused by: ' + match[1]
+      }
+    }
+    
+    if (stackTrace) {
+      // Limit to reasonable size but include full context
+      const lines = stackTrace.split('\n').slice(0, 50)
       result.stackTrace = lines.join('\n')
     }
 

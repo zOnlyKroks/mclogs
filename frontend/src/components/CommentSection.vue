@@ -78,6 +78,7 @@
       <div 
         v-for="comment in comments" 
         :key="comment.id"
+        :id="`comment-${comment.id}`"
         class="comment"
       >
         <div class="comment-header">
@@ -93,7 +94,11 @@
           
           <div class="comment-meta">
             <span class="comment-author">{{ comment.userName }}</span>
-            <span class="comment-date">
+            <span 
+              class="comment-date clickable" 
+              @click="copyPermalink(comment.id)"
+              :title="'Click to copy permalink • ' + comment.createdAt.toLocaleString()"
+            >
               {{ formatDate(comment.createdAt) }}
               <span v-if="comment.updatedAt" class="edited-indicator">(edited)</span>
             </span>
@@ -252,6 +257,24 @@ const deleteComment = async (comment: Comment) => {
 
 const toggleCommentMenu = (commentId: string) => {
   activeMenuId.value = activeMenuId.value === commentId ? null : commentId
+}
+
+const copyPermalink = async (commentId: string) => {
+  try {
+    const url = `${window.location.origin}/crash/${props.crashLogId}#comment-${commentId}`
+    await navigator.clipboard.writeText(url)
+    
+    // Show brief feedback (you could enhance this with a toast notification)
+    const originalError = error.value
+    error.value = ''
+    // Could add a success message here if desired
+    setTimeout(() => {
+      error.value = originalError
+    }, 2000)
+  } catch (err) {
+    console.error('Failed to copy permalink:', err)
+    error.value = 'Failed to copy permalink'
+  }
 }
 
 const formatDate = (date: Date) => {
@@ -457,6 +480,16 @@ onUnmounted(() => {
 .comment-date {
   font-size: 0.8rem;
   color: #6c757d;
+}
+
+.comment-date.clickable {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.comment-date.clickable:hover {
+  color: #42b883;
+  text-decoration: underline;
 }
 
 .edited-indicator {

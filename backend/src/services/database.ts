@@ -2,13 +2,17 @@ import sqlite3 from 'sqlite3'
 import { promisify } from 'util'
 import { CrashLog, CrashLogSearchParams, Comment } from '../models/CrashLog'
 import { User } from '../models/User'
+import { searchEngine } from './searchEngine'
 
 export class Database {
   private db: sqlite3.Database
 
   constructor(dbPath: string = './crashes.db') {
     this.db = new sqlite3.Database(dbPath)
-    this.init()
+    this.init().then(() => {
+      // Rebuild search index on startup
+      this.rebuildSearchIndex()
+    })
   }
 
   private async init() {
@@ -84,19 +88,30 @@ export class Database {
       CREATE INDEX IF NOT EXISTS idx_error_type ON crash_logs (error_type)
     `)
 
-    // Enable FTS for search
+    // Enable FTS for search - rebuild if needed to include stack_trace
+    try {
+      // Try to drop the existing FTS table to rebuild with new schema
+      await run(`DROP TABLE IF EXISTS crash_logs_fts`)
+    } catch (error: any) {
+      console.log('FTS migration note:', error.message)
+    }
+    
     await run(`
       CREATE VIRTUAL TABLE IF NOT EXISTS crash_logs_fts USING fts5(
         id UNINDEXED,
         files,
         description,
         error_message,
+        stack_trace,
         mod_list,
         tags,
         content='crash_logs',
         content_rowid='rowid'
       )
     `)
+    
+    // Rebuild FTS index to include all existing data
+    await run(`INSERT INTO crash_logs_fts(crash_logs_fts) VALUES('rebuild')`)
 
     // Create comments table
     await run(`
@@ -208,6 +223,9 @@ export class Database {
 
       stmt.finalize()
     })
+    
+    // Index in search engine
+    searchEngine.indexCrashLog(crashLog as CrashLog)
   }
 
   async getCrashLog(id: string): Promise<CrashLog | null> {
@@ -414,7 +432,91 @@ export class Database {
       DELETE FROM crash_logs WHERE id = ? AND user_id = ?
     `, [id, userId]) as any
 
+    if (result.changes > 0) {
+      // Remove from search engine
+      searchEngine.removeFromIndex(id)
+    }
+
     return result.changes > 0
+  }
+
+  /**
+   * Advanced search using the in-memory search engine
+   */
+  async advancedSearch(query: string, options: {
+    fuzzy?: boolean
+    phrase?: boolean
+    maxResults?: number
+    minScore?: number
+  } = {}): Promise<CrashLog[]> {
+    const searchResults = searchEngine.search(query, options)
+    
+    if (searchResults.length === 0) return []
+    
+    // Fetch the actual crash log objects
+    const crashLogIds = searchResults.map(r => r.crashLogId)
+    const placeholders = crashLogIds.map(() => '?').join(',')
+    
+    const all = (sql: string, params: any[]) => 
+      new Promise<any[]>((resolve, reject) => {
+        this.db.all(sql, params, (err, rows) => {
+          if (err) reject(err)
+          else resolve(rows)
+        })
+      })
+    
+    const rows = await all(`
+      SELECT * FROM crash_logs WHERE id IN (${placeholders})
+      ORDER BY created_at DESC
+    `, crashLogIds) as any[]
+    
+    const crashLogs = rows.map(row => this.rowToCrashLog(row))
+    
+    // Sort by search relevance instead of created_at
+    const scoreMap = new Map(searchResults.map(r => [r.crashLogId, r.score]))
+    crashLogs.sort((a, b) => (scoreMap.get(b.id) || 0) - (scoreMap.get(a.id) || 0))
+    
+    return crashLogs
+  }
+
+  /**
+   * Rebuild the search index from all crash logs in database
+   */
+  private async rebuildSearchIndex(): Promise<void> {
+    try {
+      console.log('Rebuilding search index...')
+      
+      const all = (sql: string, params: any[]) => 
+        new Promise<any[]>((resolve, reject) => {
+          this.db.all(sql, params, (err, rows) => {
+            if (err) reject(err)
+            else resolve(rows)
+          })
+        })
+      
+      const rows = await all('SELECT * FROM crash_logs ORDER BY created_at DESC', []) as any[]
+      
+      // Clear existing index
+      searchEngine.clear()
+      
+      // Re-index all crash logs
+      for (const row of rows) {
+        const crashLog = this.rowToCrashLog(row)
+        searchEngine.indexCrashLog(crashLog)
+      }
+      
+      const stats = searchEngine.getStats()
+      console.log(`Search index rebuilt: ${stats.totalDocuments} documents, ${stats.totalTerms} unique terms`)
+    } catch (error) {
+      console.error('Error rebuilding search index:', error)
+    }
+  }
+
+  /**
+   * Get search engine statistics
+   */
+  public getSearchStats() {
+    return searchEngine.getStats()
   }
 
   // Comment methods

@@ -19,9 +19,9 @@
           v-if="canDelete"
           @click="handleDelete" 
           class="btn btn-danger"
-          title="Force close this log report"
+          title="Delete this log report"
         >
-          Force Close
+          Delete
         </button>
       </div>
     </div>
@@ -52,7 +52,7 @@
           </div>
           <div class="file-actions">
             <button @click="copyCurrentFile" class="btn btn-sm">
-              Copy File
+              Copy Contents
             </button>
             <button @click="downloadCurrentFile" class="btn btn-sm">
               Download
@@ -241,7 +241,7 @@ const downloadBundle = () => {
 }
 
 const handleDelete = () => {
-  if (confirm('Are you sure you want to force close this log report? This action cannot be undone.')) {
+  if (confirm('Are you sure you want to delete this log report? This action cannot be undone.')) {
     emit('delete')
   }
 }
