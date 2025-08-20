@@ -1,11 +1,11 @@
 <template>
   <div class="search">
-    <div class="search-header">
+    <div class="hero">
       <h1>Search Crash Logs</h1>
       <p>Search through submitted Minecraft crash logs and stack traces</p>
     </div>
 
-    <form @submit.prevent="() => performSearch()" class="search-form">
+    <form @submit.prevent="() => performSearch()" class="crash-form">
       <div class="search-grid">
         <div class="form-group">
           <label for="query" class="form-label">Search Text</label>
@@ -78,7 +78,7 @@
           />
         </div>
 
-        <div class="form-group search-actions">
+        <div class="form-group form-actions">
           <button type="submit" class="btn" :disabled="isSearching">
             {{ isSearching ? 'Searching...' : 'Search' }}
           </button>
@@ -162,6 +162,24 @@
         >
           {{ isLoadingMore ? 'Loading...' : 'Load More' }}
         </button>
+      </div>
+    </div>
+
+    <div class="info-section">
+      <h2>Search Tips</h2>
+      <div class="info-grid">
+        <div class="info-item">
+          <h3>Search by Error</h3>
+          <p>Use error types like "NullPointerException" or "ClassNotFound"</p>
+        </div>
+        <div class="info-item">
+          <h3>Filter by Version</h3>
+          <p>Narrow results by Minecraft version and mod loader</p>
+        </div>
+        <div class="info-item">
+          <h3>Find Mod Issues</h3>
+          <p>Search for specific mods to find common compatibility issues</p>
+        </div>
       </div>
     </div>
   </div>
@@ -328,28 +346,29 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.search-header {
+.hero {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 3rem;
 }
 
-.search-header h1 {
+.hero h1 {
   font-size: 2.5rem;
   color: #2c3e50;
   margin-bottom: 1rem;
 }
 
-.search-header p {
+.hero p {
   font-size: 1.2rem;
-  color: #6c757d;
+  color: rgba(255, 255, 255, 0.9);
 }
 
-.search-form {
+.crash-form {
+  max-width: 800px;
+  margin: 0 auto 2rem auto;
   background: white;
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
 }
 
 .search-grid {
@@ -359,27 +378,31 @@ onMounted(async () => {
   align-items: end;
 }
 
-.search-actions {
+.form-actions {
   display: flex;
   gap: 1rem;
+  justify-content: center;
   flex-wrap: wrap;
 }
 
 .btn-tertiary {
-  background: #e9ecef;
-  color: #6c757d;
-  border: 1px solid #ced4da;
+  background: #6c757d;
+  color: white;
+  border: 1px solid #6c757d;
 }
 
 .btn-tertiary:hover {
-  background: #dee2e6;
-  color: #495057;
+  background: #5a6268;
+  color: white;
+  border-color: #5a6268;
 }
 
 .btn-tertiary.active {
-  background: #007bff;
+  background: #42b883;
   color: white;
-  border-color: #007bff;
+  border-color: #42b883;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(66, 184, 131, 0.3);
 }
 
 .alert-warning {
@@ -424,12 +447,14 @@ onMounted(async () => {
   background: white;
   padding: 1.5rem;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.2s;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  border: 1px solid #e9ecef;
 }
 
 .search-result:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
 }
 
 .search-result-title {
@@ -443,7 +468,7 @@ onMounted(async () => {
 }
 
 .search-result-title:hover h3 {
-  color: #007bff;
+  color: #42b883;
 }
 
 .search-result-meta {
@@ -480,11 +505,16 @@ onMounted(async () => {
 }
 
 .tag {
-  background: #007bff;
+  background: #42b883;
   color: white;
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   font-size: 0.75rem;
+  transition: background 0.2s;
+}
+
+.tag:hover {
+  background: #369870;
 }
 
 .pagination {
@@ -492,20 +522,74 @@ onMounted(async () => {
   margin-top: 2rem;
 }
 
+.info-section {
+  max-width: 800px;
+  margin: 3rem auto;
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.info-section h2 {
+  text-align: center;
+  color: #2c3e50;
+  margin-bottom: 2rem;
+}
+
+.info-section p {
+  color: #6c757d;
+  text-align: center;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+}
+
+.info-item {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid #e9ecef;
+  transition: all 0.2s ease;
+}
+
+.info-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.info-item h3 {
+  color: #42b883;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.info-item p {
+  margin: 0;
+  color: #6c757d;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
 @media (max-width: 768px) {
-  .search-header h1 {
+  .hero h1 {
     font-size: 2rem;
   }
   
-  .search-form {
+  .crash-form {
     padding: 1rem;
+    margin: 0 0 2rem 0;
   }
   
   .search-grid {
     grid-template-columns: 1fr;
   }
   
-  .search-actions {
+  .form-actions {
     flex-direction: column;
   }
   
