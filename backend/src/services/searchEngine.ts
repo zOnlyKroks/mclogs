@@ -45,18 +45,52 @@ export class CrashLogSearchEngine {
    * Tokenize text into searchable terms
    */
   private tokenize(text: string): string[] {
-    return text
-      .toLowerCase()
-      // Keep Java class names, package names, and method signatures intact
-      .split(/\s+|[^\w.$()[\]<>-]+/)
+    const originalText = text.toLowerCase()
+    const tokens = new Set<string>()
+    
+    // First pass: extract complete programming constructs
+    const programmingPatterns = [
+      // Java class names with packages
+      /\b[a-z][a-z0-9]*(?:\.[a-z][a-z0-9_$]*)+(?:\$[a-zA-Z0-9_$]+)*\b/g,
+      // Exception class names
+      /\b[A-Z][a-zA-Z0-9]*(?:Exception|Error)\b/gi,
+      // Method signatures with parentheses
+      /\b[a-zA-Z_][a-zA-Z0-9_]*\([^)]*\)/g,
+      // File paths and extensions
+      /\b[\w.-]+\.(?:jar|java|class|log)\b/g,
+      // Version numbers
+      /\b\d+\.\d+(?:\.\d+)*(?:[+-][a-zA-Z0-9_.-]+)?\b/g,
+      // Hex addresses and numbers
+      /\b0x[a-fA-F0-9]+\b/g,
+      // Minecraft/mod specific terms
+      /\b(?:minecraft|forge|fabric|quilt|neoforge|optifine|jei|create|thermal|mekanism|buildcraft)\b/gi
+    ]
+    
+    // Extract complete patterns first
+    programmingPatterns.forEach(pattern => {
+      const matches = originalText.match(pattern) || []
+      matches.forEach(match => tokens.add(match.toLowerCase()))
+    })
+    
+    // Second pass: standard word tokenization (but preserve dots in class names)
+    const words = originalText
+      .split(/[\s,;!?\[\]{}()]+/)
       .filter(token => token.length > 1 && !this.stopWords.has(token))
-      .map(token => {
-        // Handle special cases for programming terms
-        if (token.includes('.') || token.includes('$') || token.includes('(')) {
-          return token // Keep as-is for class names, inner classes, methods
-        }
-        return token
-      })
+    
+    words.forEach(word => {
+      tokens.add(word)
+      
+      // For dotted terms, also add the individual parts
+      if (word.includes('.')) {
+        word.split('.').forEach(part => {
+          if (part.length > 1 && !this.stopWords.has(part)) {
+            tokens.add(part)
+          }
+        })
+      }
+    })
+    
+    return Array.from(tokens)
   }
 
   /**

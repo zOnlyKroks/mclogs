@@ -61,7 +61,22 @@
         </div>
         
         <div class="file-content-body">
-          <pre ref="codeElement"><code>{{ currentFile.content }}</code></pre>
+          <div class="code-container">
+            <div class="line-numbers" v-if="codeLines.length > 0">
+              <a 
+                v-for="(_, index) in codeLines" 
+                :key="index"
+                :id="`line-${index + 1}`"
+                :href="`#line-${index + 1}`"
+                class="line-number"
+                @click="copyPermalink(index + 1)"
+                :title="`Click to copy link to line ${index + 1}`"
+              >
+                {{ index + 1 }}
+              </a>
+            </div>
+            <pre ref="codeElement" class="code-content"><code v-html="highlightedContent"></code></pre>
+          </div>
         </div>
       </div>
     </div>
@@ -109,6 +124,8 @@ const activeFileIndex = ref(0)
 const codeElement = ref<HTMLElement>()
 
 const currentFile = computed(() => props.crashLog.files[activeFileIndex.value])
+const codeLines = computed(() => currentFile.value.content.split('\n'))
+const highlightedContent = computed(() => highlightCrashLog(currentFile.value.content))
 
 const canDelete = computed(() => {
   return authStore.isAuthenticated && 
@@ -127,10 +144,31 @@ const formatFileSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
-const highlightCode = () => {
-  if (codeElement.value) {
-    const highlighted = highlightCrashLog(currentFile.value.content)
-    codeElement.value.innerHTML = highlighted
+const copyPermalink = async (lineNumber: number) => {
+  const url = `${window.location.origin}/crash/${props.crashLog.id}#line-${lineNumber}`
+  try {
+    await navigator.clipboard.writeText(url)
+    // Could add a toast notification here
+    console.log(`Copied permalink to line ${lineNumber}`)
+  } catch (err) {
+    console.error('Failed to copy permalink:', err)
+  }
+}
+
+const scrollToLineFromUrl = () => {
+  const hash = window.location.hash
+  if (hash.startsWith('#line-')) {
+    const lineNumber = parseInt(hash.replace('#line-', ''))
+    if (lineNumber && lineNumber <= codeLines.value.length) {
+      setTimeout(() => {
+        const element = document.getElementById(`line-${lineNumber}`)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          element.classList.add('highlighted-line')
+          setTimeout(() => element.classList.remove('highlighted-line'), 3000)
+        }
+      }, 100)
+    }
   }
 }
 
@@ -248,12 +286,12 @@ const handleDelete = () => {
 
 watch(activeFileIndex, async () => {
   await nextTick()
-  highlightCode()
+  scrollToLineFromUrl()
 })
 
 onMounted(async () => {
   await nextTick()
-  highlightCode()
+  scrollToLineFromUrl()
 })
 </script>
 
@@ -431,19 +469,58 @@ onMounted(async () => {
   overscroll-behavior: contain;
 }
 
-.file-content-body pre {
+.code-container {
+  display: flex;
+  min-width: 100%;
+  width: max-content;
+}
+
+.line-numbers {
+  background: #f0f0f0;
+  border-right: 1px solid #d0d0d0;
+  padding: 1.5rem 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  user-select: none;
+  color: #6c757d;
+  min-width: 4rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.line-number {
+  display: block;
+  padding: 0 0.75rem;
+  text-decoration: none;
+  color: #6c757d;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.line-number:hover {
+  background: #e9ecef;
+  color: #2c3e50;
+}
+
+.line-number:target,
+.line-number.highlighted-line {
+  background: #fff3cd !important;
+  color: #856404 !important;
+  border-left: 3px solid #ffc107;
+}
+
+.code-content {
   margin: 0;
   padding: 1.5rem;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 0.875rem;
   line-height: 1.5;
   background: transparent;
-  /* Ensure content extends beyond container width */
-  min-width: 100%;
-  width: max-content;
+  flex-grow: 1;
 }
 
-.file-content-body code {
+.code-content code {
   background: none;
   white-space: pre;
   word-wrap: normal;
@@ -640,7 +717,12 @@ onMounted(async () => {
     justify-content: center;
   }
   
-  .file-content-body pre {
+  .line-numbers {
+    min-width: 3rem;
+    padding: 1rem 0;
+  }
+  
+  .code-content {
     padding: 1rem;
     font-size: 0.75rem;
   }
