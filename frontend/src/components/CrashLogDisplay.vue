@@ -147,10 +147,10 @@ const handleLineClick = async (lineNumber: number) => {
   console.log('Line clicked:', lineNumber)
   
   try {
-    // Copy permalink
+    // Copy permalink (this creates the shareable URL)
     await copyPermalink(lineNumber)
     
-    // Highlight the clicked line
+    // Just provide visual feedback without changing the current URL
     const element = document.getElementById(`line-${lineNumber}`)
     if (element) {
       // Remove any existing highlights
@@ -161,10 +161,6 @@ const handleLineClick = async (lineNumber: number) => {
       // Add highlight to clicked line
       element.classList.add('highlighted-line')
       setTimeout(() => element.classList.remove('highlighted-line'), 3000)
-      
-      // Update URL without reload
-      const newUrl = `${window.location.pathname}?file=${activeFileIndex.value}#line-${lineNumber}`
-      window.history.replaceState({}, '', newUrl)
     }
   } catch (error) {
     console.error('Error handling line click:', error)
@@ -185,16 +181,6 @@ const copyPermalink = async (lineNumber: number) => {
 }
 
 const scrollToLineFromUrl = () => {
-  // Check if URL has file parameter and switch to that file first
-  const urlParams = new URLSearchParams(window.location.search)
-  const fileParam = urlParams.get('file')
-  if (fileParam !== null) {
-    const fileIndex = parseInt(fileParam)
-    if (fileIndex >= 0 && fileIndex < props.crashLog.files.length) {
-      activeFileIndex.value = fileIndex
-    }
-  }
-
   const hash = window.location.hash
   if (hash.startsWith('#line-')) {
     const lineNumber = parseInt(hash.replace('#line-', ''))
@@ -209,6 +195,19 @@ const scrollToLineFromUrl = () => {
       }, 100)
     }
   }
+}
+
+const initializeFromUrl = () => {
+  // Only check URL parameters on initial load, not on file changes
+  const urlParams = new URLSearchParams(window.location.search)
+  const fileParam = urlParams.get('file')
+  if (fileParam !== null) {
+    const fileIndex = parseInt(fileParam)
+    if (fileIndex >= 0 && fileIndex < props.crashLog.files.length) {
+      activeFileIndex.value = fileIndex
+    }
+  }
+  scrollToLineFromUrl()
 }
 
 const highlightCrashLog = (content: string): string => {
@@ -325,12 +324,14 @@ const handleDelete = () => {
 
 watch(activeFileIndex, async () => {
   await nextTick()
+  // Only scroll to line from URL, don't re-read file parameters
   scrollToLineFromUrl()
 })
 
 onMounted(async () => {
   await nextTick()
-  scrollToLineFromUrl()
+  // Initialize from URL parameters only once on mount
+  initializeFromUrl()
 })
 </script>
 
