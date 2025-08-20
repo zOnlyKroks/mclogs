@@ -62,14 +62,14 @@
         
         <div class="file-content-body">
           <div class="code-container">
-            <div class="line-numbers" v-if="codeLines.length > 0" @click="handleLineNumberClick">
+            <div class="line-numbers" v-if="codeLines.length > 0">
               <span 
                 v-for="(_, index) in codeLines" 
                 :key="`${activeFileIndex}-${index}`"
                 :id="`line-${index + 1}`"
-                :data-line="`${index + 1}`"
                 class="line-number"
                 :title="`Click to copy link to line ${index + 1} in ${currentFile.name}`"
+                @click="() => handleLineClick(index + 1)"
               >
                 {{ index + 1 }}
               </span>
@@ -143,13 +143,27 @@ const formatFileSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
-const handleLineNumberClick = (event: MouseEvent) => {
-  const target = event.target as HTMLElement
-  if (target.classList.contains('line-number')) {
-    const lineNumber = parseInt(target.dataset.line || '0')
-    if (lineNumber > 0) {
-      copyPermalink(lineNumber)
-    }
+const handleLineClick = async (lineNumber: number) => {
+  console.log('Line clicked:', lineNumber)
+  
+  // Copy permalink
+  await copyPermalink(lineNumber)
+  
+  // Highlight the clicked line
+  const element = document.getElementById(`line-${lineNumber}`)
+  if (element) {
+    // Remove any existing highlights
+    document.querySelectorAll('.line-number.highlighted-line').forEach(el => {
+      el.classList.remove('highlighted-line')
+    })
+    
+    // Add highlight to clicked line
+    element.classList.add('highlighted-line')
+    setTimeout(() => element.classList.remove('highlighted-line'), 3000)
+    
+    // Update URL without reload
+    const newUrl = `${window.location.pathname}?file=${activeFileIndex.value}#line-${lineNumber}`
+    window.history.replaceState({}, '', newUrl)
   }
 }
 
