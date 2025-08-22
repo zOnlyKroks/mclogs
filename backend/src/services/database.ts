@@ -204,12 +204,12 @@ export class Database {
   }
 
   async createCrashLog(crashLog: Omit<CrashLog, 'createdAt'>): Promise<void> {
-    // Check total count and enforce 100 limit
+    // Check total count and enforce 1000 limit
     const totalCount = await this.getTotalCrashLogCount()
     
-    // If we're at or above 100, delete the oldest logs to make room
-    if (totalCount >= 100) {
-      const logsToDelete = totalCount - 100 + 1 // +1 to make room for new log
+    // If we're at or above 1000, delete the oldest logs to make room
+    if (totalCount >= 1000) {
+      const logsToDelete = totalCount - 1000 + 1 // +1 to make room for new log
       await this.deleteOldestCrashLogs(logsToDelete)
     }
 

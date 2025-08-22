@@ -160,6 +160,14 @@
           <p>Get a single URL that contains all your logs and comments</p>
         </div>
       </div>
+      
+      <div class="service-notice">
+        <div class="notice-icon">ℹ️</div>
+        <div class="notice-content">
+          <h4>Beta Service Notice</h4>
+          <p>This service is currently in beta and stores a maximum of 1,000 log bundles total. When the limit is reached, the oldest logs are automatically removed to make space for new uploads. Each user can have up to 10 log bundles. These limits exist due to hosting costs and financial constraints during the beta phase.</p>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -786,6 +794,34 @@ const formatExpirationDate = (dateString: Date | string) => {
 .info-item h3 {
   color: #42b883;
   margin-bottom: 1rem;
+}
+
+.service-notice {
+  margin-top: 3rem;
+  padding: 1.5rem;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.notice-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.notice-content h4 {
+  color: #856404;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.notice-content p {
+  color: #856404;
+  margin: 0;
+  line-height: 1.5;
 }
 
 @media (max-width: 768px) {
