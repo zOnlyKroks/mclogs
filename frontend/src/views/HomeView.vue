@@ -168,6 +168,7 @@
           <p>Get a single URL that contains all your logs and comments</p>
         </div>
       </div>
+    </div>
   </div>
 </template>
 
