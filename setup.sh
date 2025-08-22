@@ -13,13 +13,13 @@ cd "$PROJECT_DIR"
 git pull origin main
 
 echo "➡️ Rebuilding Docker images..."
-docker compose build
+docker-compose build
 
 echo "➡️ Starting containers..."
-docker compose up -d
+docker-compose up -d
 
 echo "➡️ Copying frontend build to Nginx host path..."
-FRONTEND_CONTAINER_ID=$(docker compose ps -q "$FRONTEND_CONTAINER_NAME")
+FRONTEND_CONTAINER_ID=$(docker-compose ps -q "$FRONTEND_CONTAINER_NAME")
 docker cp "$FRONTEND_CONTAINER_ID":/usr/share/nginx/html/. "$NGINX_FRONTEND_DIR"
 
 echo "➡️ Setting permissions for Nginx..."
