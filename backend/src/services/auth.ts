@@ -19,12 +19,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-i
 
 export class AuthService {
   static initializePassport() {
-    // Validate required environment variables
-    if (!process.env.GOOGLE_CLIENT_ID) {
-      throw new Error('GOOGLE_CLIENT_ID environment variable is required')
-    }
-    if (!process.env.GOOGLE_CLIENT_SECRET) {
-      throw new Error('GOOGLE_CLIENT_SECRET environment variable is required')
+    // Check if Google OAuth is configured
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+      console.warn('Google OAuth not configured - authentication will be disabled')
+      console.warn('Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables to enable authentication')
+      return
     }
 
     passport.use(
