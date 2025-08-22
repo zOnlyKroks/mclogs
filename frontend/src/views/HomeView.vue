@@ -797,7 +797,7 @@ const formatExpirationDate = (dateString: Date | string) => {
 }
 
 .service-notice {
-  margin-top: 3rem;
+  margin: 3rem 0 2rem 0;
   padding: 1.5rem;
   background: #fff3cd;
   border: 1px solid #ffeaa7;
