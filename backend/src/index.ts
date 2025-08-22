@@ -15,17 +15,11 @@ const app = express();
 const PORT = parseInt(process.env.PORT ?? "8000", 10);
 const HOST = process.env.HOST || "127.0.0.1";
 
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      connectSrc: ["'self'", "https://launchermeta.mojang.com"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:"],
-    },
-  },
-}));
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Disable helmet CSP since nginx serves static files
+  })
+);
 
 app.use(compression());
 
