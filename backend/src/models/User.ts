@@ -12,4 +12,5 @@ export interface User {
 
 export interface AuthenticatedRequest extends express.Request {
   user?: User;
+  userSession?: import('./Session').Session;
 }

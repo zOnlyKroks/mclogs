@@ -2,6 +2,7 @@ import sqlite3 from 'sqlite3'
 import { promisify } from 'util'
 import { CrashLog, CrashLogSearchParams, Comment } from '../models/CrashLog'
 import { User } from '../models/User'
+import { Session } from '../models/Session'
 import { searchEngine } from './searchEngine'
 
 export class Database {
@@ -135,6 +136,29 @@ export class Database {
 
     await run(`
       CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments (user_id)
+    `)
+
+    // Create sessions table for anonymous users
+    await run(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        fingerprint TEXT NOT NULL,
+        ip_address TEXT NOT NULL,
+        user_agent TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_used DATETIME DEFAULT CURRENT_TIMESTAMP,
+        expires_at DATETIME NOT NULL,
+        claimed_by TEXT,
+        FOREIGN KEY (claimed_by) REFERENCES users (id) ON DELETE SET NULL
+      )
+    `)
+
+    await run(`
+      CREATE INDEX IF NOT EXISTS idx_sessions_fingerprint ON sessions (fingerprint)
+    `)
+
+    await run(`
+      CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions (expires_at)
     `)
 
     await run(`
@@ -675,6 +699,169 @@ export class Database {
       createdAt: new Date(row.created_at),
       expiresAt: row.expires_at ? new Date(row.expires_at) : undefined,
       tags: JSON.parse(row.tags || '[]')
+    }
+  }
+
+  // Session management methods
+  async createSession(sessionData: Omit<Session, 'id' | 'createdAt' | 'lastUsed'>): Promise<Session> {
+    const sessionId = require('uuid').v4()
+    const now = new Date().toISOString()
+    
+    await new Promise<void>((resolve, reject) => {
+      const stmt = this.db.prepare(`
+        INSERT INTO sessions (id, fingerprint, ip_address, user_agent, created_at, last_used, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `)
+      
+      stmt.run([
+        sessionId,
+        sessionData.fingerprint,
+        sessionData.ipAddress,
+        sessionData.userAgent,
+        now,
+        now,
+        sessionData.expiresAt.toISOString()
+      ], (err) => {
+        if (err) reject(err)
+        else resolve()
+      })
+      
+      stmt.finalize()
+    })
+    
+    return {
+      id: sessionId,
+      fingerprint: sessionData.fingerprint,
+      ipAddress: sessionData.ipAddress,
+      userAgent: sessionData.userAgent,
+      createdAt: new Date(now),
+      lastUsed: new Date(now),
+      expiresAt: sessionData.expiresAt,
+      claimedBy: sessionData.claimedBy
+    }
+  }
+
+  async findSessionById(sessionId: string): Promise<Session | null> {
+    const get = (sql: string, params: any[]) => 
+      new Promise<any>((resolve, reject) => {
+        this.db.get(sql, params, (err, row) => {
+          if (err) reject(err)
+          else resolve(row)
+        })
+      })
+
+    const row = await get(`
+      SELECT * FROM sessions WHERE id = ? AND expires_at > datetime('now')
+    `, [sessionId])
+
+    if (!row) return null
+
+    return this.rowToSession(row)
+  }
+
+  async updateSessionLastUsed(sessionId: string): Promise<void> {
+    const run = (sql: string, params: any[]) => 
+      new Promise<void>((resolve, reject) => {
+        this.db.run(sql, params, (err) => {
+          if (err) reject(err)
+          else resolve()
+        })
+      })
+    
+    await run(`
+      UPDATE sessions SET last_used = datetime('now') WHERE id = ?
+    `, [sessionId])
+  }
+
+  async claimSession(sessionId: string, userId: string): Promise<void> {
+    const run = (sql: string, params: any[]) => 
+      new Promise<void>((resolve, reject) => {
+        this.db.run(sql, params, (err) => {
+          if (err) reject(err)
+          else resolve()
+        })
+      })
+    
+    await run(`
+      UPDATE sessions SET claimed_by = ? WHERE id = ?
+    `, [userId, sessionId])
+    
+    // Transfer crash logs from session to user
+    await run(`
+      UPDATE crash_logs SET user_id = ? WHERE user_id = ?
+    `, [userId, sessionId])
+  }
+
+  async getSessionCrashLogCount(sessionId: string): Promise<number> {
+    const get = (sql: string, params: any[]) => 
+      new Promise<any>((resolve, reject) => {
+        this.db.get(sql, params, (err, row) => {
+          if (err) reject(err)
+          else resolve(row)
+        })
+      })
+
+    const result = await get(`
+      SELECT COUNT(*) as count FROM crash_logs WHERE user_id = ?
+    `, [sessionId])
+    
+    return result?.count || 0
+  }
+
+  async deleteOldestSessionCrashLog(sessionId: string): Promise<void> {
+    const run = (sql: string, params: any[]) => 
+      new Promise<void>((resolve, reject) => {
+        this.db.run(sql, params, (err) => {
+          if (err) reject(err)
+          else resolve()
+        })
+      })
+    
+    await run(`
+      DELETE FROM crash_logs
+      WHERE id IN (
+        SELECT id FROM crash_logs
+        WHERE user_id = ?
+        ORDER BY created_at ASC
+        LIMIT 1
+      )
+    `, [sessionId])
+  }
+
+  async cleanupExpiredSessions(): Promise<void> {
+    const run = (sql: string, params: any[]) => 
+      new Promise<void>((resolve, reject) => {
+        this.db.run(sql, params, (err) => {
+          if (err) reject(err)
+          else resolve()
+        })
+      })
+    
+    // Delete crash logs from expired unclaimed sessions
+    await run(`
+      DELETE FROM crash_logs 
+      WHERE user_id IN (
+        SELECT id FROM sessions 
+        WHERE expires_at < datetime('now') AND claimed_by IS NULL
+      )
+    `, [])
+    
+    // Delete expired sessions
+    await run(`
+      DELETE FROM sessions WHERE expires_at < datetime('now')
+    `, [])
+  }
+
+  private rowToSession(row: any): Session {
+    return {
+      id: row.id,
+      fingerprint: row.fingerprint,
+      ipAddress: row.ip_address,
+      userAgent: row.user_agent,
+      createdAt: new Date(row.created_at),
+      lastUsed: new Date(row.last_used),
+      expiresAt: new Date(row.expires_at),
+      claimedBy: row.claimed_by
     }
   }
 

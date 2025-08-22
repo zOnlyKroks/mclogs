@@ -9,10 +9,20 @@ export interface User {
   picture?: string;
 }
 
+export interface Session {
+  sessionId: string;
+  token: string;
+  expiresAt: Date;
+  isAnonymous: boolean;
+}
+
 export const useAuthStore = defineStore("auth", () => {
   const user = ref<User | null>(null);
-  const token = ref<string | null>(localStorage.getItem("auth_token"));
-  const isAuthenticated = computed(() => !!user.value && !!token.value);
+  const token = ref<string | null>(localStorage.getItem("auth_token") || localStorage.getItem("session_token"));
+  const sessionData = ref<Session | null>(null);
+  const isAuthenticated = computed(() => !!user.value);
+  const hasSession = computed(() => !!token.value);
+  const isAnonymous = computed(() => hasSession.value && !isAuthenticated.value);
 
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
   const REFRESH_INTERVAL = 30 * 1000; // 30 seconds in milliseconds
@@ -24,16 +34,29 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null;
   const setAuth = (authToken: string, userData: User) => {
     token.value = authToken;
     user.value = userData;
+    sessionData.value = null;
     localStorage.setItem("auth_token", authToken);
+    localStorage.removeItem("session_token");
     axios.defaults.headers.common["Authorization"] = `Bearer ${authToken}`;
 
     startPeriodicRefresh();
   };
 
+  const setSession = (session: Session) => {
+    token.value = session.token;
+    sessionData.value = session;
+    user.value = null;
+    localStorage.setItem("session_token", session.token);
+    localStorage.removeItem("auth_token");
+    axios.defaults.headers.common["Authorization"] = `Bearer ${session.token}`;
+  };
+
   const clearAuth = () => {
     token.value = null;
     user.value = null;
+    sessionData.value = null;
     localStorage.removeItem("auth_token");
+    localStorage.removeItem("session_token");
     delete axios.defaults.headers.common["Authorization"];
 
     stopPeriodicRefresh();
@@ -93,6 +116,47 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null;
     window.location.href = "/api/auth/google";
   };
 
+  const createAnonymousSession = async () => {
+    try {
+      const response = await axios.post("/api/auth/session");
+      const session: Session = {
+        sessionId: response.data.sessionId,
+        token: response.data.token,
+        expiresAt: new Date(response.data.expiresAt),
+        isAnonymous: true
+      };
+      setSession(session);
+      return session;
+    } catch (error) {
+      console.error("Failed to create anonymous session:", error);
+      throw error;
+    }
+  };
+
+  const claimSession = async () => {
+    if (!sessionData.value) {
+      throw new Error("No anonymous session to claim");
+    }
+    
+    try {
+      await axios.post("/api/auth/claim", {
+        sessionId: sessionData.value.sessionId
+      });
+      
+      // After claiming, the user should authenticate to get the full benefits
+      return true;
+    } catch (error) {
+      console.error("Failed to claim session:", error);
+      throw error;
+    }
+  };
+
+  const ensureSession = async () => {
+    if (!hasSession.value) {
+      await createAnonymousSession();
+    }
+  };
+
   const logout = async () => {
     try {
       await axios.post("/api/auth/logout");
@@ -131,10 +195,17 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null;
   return {
     user,
     token,
+    sessionData,
     isAuthenticated,
+    hasSession,
+    isAnonymous,
     setAuth,
+    setSession,
     clearAuth,
     fetchUser,
+    createAnonymousSession,
+    claimSession,
+    ensureSession,
     login,
     logout,
     startPeriodicRefresh,

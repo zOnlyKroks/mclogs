@@ -17,7 +17,23 @@ api.interceptors.request.use((config) => {
 
 export class ApiService {
   static async createCrashLog(files: LogFile[], title?: string, description?: string): Promise<CreateCrashResponse> {
+    // Ensure we have a session (auth or anonymous) before uploading
+    const { useAuthStore } = await import('../stores/auth');
+    const store = useAuthStore();
+    await store.ensureSession();
+    
     const response = await api.post('/crashes', { files, title, description })
+    
+    // If response includes session token, update our stored token
+    if (response.headers['x-session-token']) {
+      const newToken = response.headers['x-session-token'];
+      if (!store.isAuthenticated) {
+        localStorage.setItem('session_token', newToken);
+        store.token = newToken;
+        axios.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
+      }
+    }
+    
     return response.data
   }
 
@@ -93,5 +109,16 @@ export class ApiService {
         updatedAt: comment.updatedAt ? new Date(comment.updatedAt) : undefined
       }))
     }
+  }
+
+  // Session methods
+  static async createSession(): Promise<any> {
+    const response = await api.post('/auth/session')
+    return response.data
+  }
+
+  static async claimSession(sessionId: string): Promise<any> {
+    const response = await api.post('/auth/claim', { sessionId })
+    return response.data
   }
 }

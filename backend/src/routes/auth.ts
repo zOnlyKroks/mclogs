@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import passport from 'passport'
 import { AuthService } from '../services/auth'
+import { database } from '../services/database'
 import express from 'express'
 
 declare global {
@@ -52,6 +53,60 @@ router.get('/me', AuthService.requireAuth, (req: express.Request, res: express.R
       picture: user.picture
     }
   })
+})
+
+// Create anonymous session
+router.post('/session', async (req: express.Request, res: express.Response) => {
+  try {
+    const session = await AuthService.createSession(req)
+    const token = AuthService.generateSessionToken(session)
+    
+    res.json({
+      sessionId: session.id,
+      token,
+      expiresAt: session.expiresAt,
+      isAnonymous: true
+    })
+  } catch (error) {
+    console.error('Session creation error:', error)
+    res.status(500).json({ error: 'Failed to create session' })
+  }
+})
+
+// Claim anonymous session after authentication
+router.post('/claim', AuthService.requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const user = req.user!
+    const { sessionId } = req.body
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID required' })
+    }
+    
+    // Verify session exists and is not already claimed
+    const session = await database.findSessionById(sessionId)
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found or expired' })
+    }
+    
+    if (session.claimedBy) {
+      return res.status(409).json({ error: 'Session already claimed' })
+    }
+    
+    // Claim the session and transfer logs
+    await database.claimSession(sessionId, user.id)
+    
+    // Get the count of transferred logs
+    const transferredLogCount = await database.getUserCrashLogCount(user.id)
+    
+    res.json({ 
+      message: 'Session claimed successfully',
+      transferredLogs: transferredLogCount
+    })
+  } catch (error) {
+    console.error('Session claim error:', error)
+    res.status(500).json({ error: 'Failed to claim session' })
+  }
 })
 
 // Logout

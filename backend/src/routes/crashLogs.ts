@@ -38,7 +38,7 @@ const searchRateLimit = rateLimit({
   message: { error: 'Too many search requests, try again later.' }
 })
 
-router.post('/', createRateLimit, AuthService.requireAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/', createRateLimit, AuthService.requireAuthOrSession, async (req: AuthenticatedRequest, res) => {
   try {
     const { files, title, description } = req.body
 
@@ -75,13 +75,21 @@ router.post('/', createRateLimit, AuthService.requireAuth, async (req: Authentic
     }
 
     const id = uuidv4()
-    const userId = req.user!.id
+    const userId = req.user?.id || req.userSession!.id
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     
-    const userLogCount = await database.getUserCrashLogCount(userId)
+    // Get log count - use user method for authenticated users, session method for anonymous
+    const logCount = req.user 
+      ? await database.getUserCrashLogCount(userId)
+      : await database.getSessionCrashLogCount(userId)
     
-    if (userLogCount >= 10) {
-      await database.deleteOldestUserCrashLog(userId)
+    if (logCount >= 10) {
+      // Delete oldest log - use appropriate method based on user type
+      if (req.user) {
+        await database.deleteOldestUserCrashLog(userId)
+      } else {
+        await database.deleteOldestSessionCrashLog(userId)
+      }
     }
 
     // Parse the primary log file (latest.log or first crash file)
@@ -102,12 +110,20 @@ router.post('/', createRateLimit, AuthService.requireAuth, async (req: Authentic
 
     await database.createCrashLog(crashLog)
 
-    res.status(201).json({
+    const response: any = {
       id,
       url: `/crash/${id}`,
       expiresAt,
       fileCount: processedFiles.length
-    })
+    }
+
+    // Include session info for anonymous users
+    if (!req.user && req.userSession) {
+      response.sessionId = req.userSession.id
+      response.isAnonymous = true
+    }
+
+    res.status(201).json(response)
   } catch (error) {
     console.error('Error creating crash log:', error)
     const message = error instanceof Error ? error.message : 'Internal server error'
