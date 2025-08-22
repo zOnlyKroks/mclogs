@@ -1,47 +1,32 @@
 #!/bin/bash
+# update.sh — updates Git, rebuilds Docker, updates frontend, reloads Nginx
 
-echo "🚀 Setting up MCLogs development environment..."
+set -e  # exit on any error
 
-# Check if Node.js is installed
-if ! command -v node &> /dev/null; then
-    echo "❌ Node.js is not installed. Please install Node.js 18 or later."
-    exit 1
-fi
+# Config
+PROJECT_DIR="$HOME/mclogs"
+FRONTEND_CONTAINER_NAME="frontend"        # docker-compose service name
+NGINX_FRONTEND_DIR="/var/www/mclogs_frontend"
 
-# Check Node.js version
-NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-if [ "$NODE_VERSION" -lt 18 ]; then
-    echo "❌ Node.js version 18 or later is required. Current version: $(node -v)"
-    exit 1
-fi
+echo "➡️ Pulling latest code from Git..."
+cd "$PROJECT_DIR"
+git pull origin main
 
-echo "✅ Node.js version: $(node -v)"
+echo "➡️ Rebuilding Docker images..."
+docker compose build
 
-# Install root dependencies
-echo "📦 Installing root dependencies..."
-npm install
+echo "➡️ Starting containers..."
+docker compose up -d
 
-# Install backend dependencies
-echo "📦 Installing backend dependencies..."
-cd backend
-npm install
-cd ..
+echo "➡️ Copying frontend build to Nginx host path..."
+FRONTEND_CONTAINER_ID=$(docker compose ps -q "$FRONTEND_CONTAINER_NAME")
+docker cp "$FRONTEND_CONTAINER_ID":/usr/share/nginx/html/. "$NGINX_FRONTEND_DIR"
 
-# Install frontend dependencies
-echo "📦 Installing frontend dependencies..."
-cd frontend
-npm install
-cd ..
+echo "➡️ Setting permissions for Nginx..."
+sudo chown -R www-data:www-data "$NGINX_FRONTEND_DIR"
+sudo chmod -R 755 "$NGINX_FRONTEND_DIR"
 
-echo ""
-echo "🎉 Setup complete!"
-echo ""
-echo "To start development:"
-echo "  npm run dev"
-echo ""
-echo "To build for production:"
-echo "  npm run build"
-echo ""
-echo "The app will be available at:"
-echo "  Frontend: http://localhost:3000"
-echo "  Backend API: http://localhost:8000"
+echo "➡️ Reloading Nginx..."
+sudo systemctl reload nginx
+
+echo "✅ Update complete!"

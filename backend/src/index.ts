@@ -12,7 +12,8 @@ import commentsRouter from "./routes/comments";
 import usersRouter from "./routes/users";
 
 const app = express();
-const PORT = process.env.PORT || 8000;
+const PORT = parseInt(process.env.PORT ?? "8000", 10);
+const HOST = process.env.HOST || "127.0.0.1";
 
 app.use(helmet());
 app.use(compression());
@@ -77,7 +78,7 @@ app.use(
   }
 );
 
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
 });
