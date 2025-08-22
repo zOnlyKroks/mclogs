@@ -167,10 +167,15 @@ export class CrashParser {
     }
     
     // Also include Caused by exceptions
-    const causedByMatches = content.matchAll(/Caused by: (.*?(?:\n.*?at\s+.*?)*)/gms)
-    for (const match of causedByMatches) {
-      if (match[1]) {
-        stackTrace += '\nCaused by: ' + match[1]
+    const causedByPattern = /Caused by: ([^\n]*(?:\n\s*at [^\n]*)*)/g
+    let causedByMatch
+    while ((causedByMatch = causedByPattern.exec(content)) !== null) {
+      if (causedByMatch[1]) {
+        stackTrace += '\nCaused by: ' + causedByMatch[1]
+      }
+      // Prevent infinite loops
+      if (causedByPattern.lastIndex === causedByMatch.index) {
+        causedByPattern.lastIndex++
       }
     }
     
