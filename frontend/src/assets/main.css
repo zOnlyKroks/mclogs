@@ -1,7 +1,9 @@
+:root {
+  --roundy-edges: 13;
+}
 * {
   box-sizing: border-box;
 }
-
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -22,7 +24,7 @@ h1, h2, h3, h4, h5, h6 {
   background: #42b883;
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--roundy-edges);
   cursor: pointer;
   text-decoration: none;
   font-size: 1rem;
@@ -82,7 +84,7 @@ h1, h2, h3, h4, h5, h6 {
   width: 100%;
   padding: 0.875rem;
   border: 2px solid #e9ecef;
-  border-radius: 8px;
+  border-radius: var(--roundy-edges);
   font-size: 1rem;
   transition: all 0.2s ease;
   background: white;
@@ -106,7 +108,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .alert {
   padding: 1rem;
-  border-radius: 8px;
+  border-radius: var(--roundy-edges);
   margin-bottom: 1rem;
   border: 1px solid transparent;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -133,7 +135,7 @@ h1, h2, h3, h4, h5, h6 {
 .crash-log {
   background: #f8f9fa;
   border: 1px solid #e9ecef;
-  border-radius: 4px;
+  border-radius: var(--roundy-edges);
   padding: 1rem;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 0.875rem;
@@ -145,7 +147,7 @@ h1, h2, h3, h4, h5, h6 {
 .search-result {
   background: white;
   border: 1px solid #e9ecef;
-  border-radius: 4px;
+  border-radius: var(--roundy-edges);
   padding: 1rem;
   margin-bottom: 1rem;
   transition: box-shadow 0.2s;
@@ -184,7 +186,7 @@ h1, h2, h3, h4, h5, h6 {
   background: #e9ecef;
   color: #495057;
   padding: 0.25rem 0.5rem;
-  border-radius: 3px;
+  border-radius: var(--roundy-edges);
   font-size: 0.75rem;
 }
 
