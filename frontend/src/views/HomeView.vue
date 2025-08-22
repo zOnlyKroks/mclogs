@@ -16,11 +16,10 @@
     </div>
 
     <div class="service-notice">
-        <div class="notice-icon">ℹ️</div>
-        <div class="notice-content">
-          <h4>Beta Service Notice</h4>
-          <p>This service is currently in beta and stores a maximum of 1,000 log bundles total. When the limit is reached, the oldest logs are automatically removed to make space for new uploads. Each user can have up to 10 log bundles. These limits exist due to hosting costs and financial constraints during the beta phase.</p>
-        </div>
+      <div class="notice-icon">ℹ️</div>
+      <div class="notice-content">
+        <h4>Beta Service Notice</h4>
+        <p>This service is currently in beta and stores a maximum of 1,000 log bundles total. When the limit is reached, the oldest logs are automatically removed to make space for new uploads. Each user can have up to 10 log bundles. These limits exist due to hosting costs and financial constraints during the beta phase.</p>
       </div>
     </div>
 
