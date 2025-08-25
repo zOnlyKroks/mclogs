@@ -23,14 +23,19 @@ cd "$BACKEND_DIR"
 # Install dependencies
 npm install
 
+# Build TypeScript to JavaScript
+echo "➡️ Building backend TypeScript..."
+npm run build
+
 # Create logs directory
 mkdir -p logs
 
 # Stop existing PM2 process if running
 pm2 delete mclogs-backend 2>/dev/null || true
 
-# Start with PM2
-pm2 start ecosystem.config.js
+# Start with PM2 in production mode
+echo "➡️ Starting backend with PM2..."
+pm2 start ecosystem.config.js --env production
 
 # Save PM2 configuration
 pm2 save
