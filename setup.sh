@@ -10,6 +10,10 @@ NGINX_FRONTEND_DIR="/var/www/mclogs_frontend"
 
 echo "➡️ Pulling latest code from Git..."
 cd "$PROJECT_DIR"
+
+docker-compose down -v --rmi all --remove-orphans
+docker system prune -a --volumes --force
+
 git pull origin main
 
 echo "➡️ Rebuilding Docker images..."
