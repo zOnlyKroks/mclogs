@@ -16,21 +16,29 @@ cd "$FRONTEND_DIR"
 npm install
 npm run build
 
-# Start backend in detached screen
+# Backend deployment
+echo "➡️ Deploying backend..."
 cd "$BACKEND_DIR"
+
+# Install dependencies
 npm install
 
-if ! screen -list | grep -q "backend"; then
-    echo "➡️ Starting backend in screen session..."
-    screen -dmS backend bash -c "npm run start"
-else
-    echo "➡️ Backend screen session already running. Restarting..."
-    screen -S backend -X quit
-    screen -dmS backend bash -c "npm run start"
-fi
+# Create logs directory
+mkdir -p logs
+
+# Stop existing PM2 process if running
+pm2 delete mclogs-backend 2>/dev/null || true
+
+# Start with PM2
+pm2 start ecosystem.config.js
+
+# Save PM2 configuration
+pm2 save
 
 # Reload Nginx to serve the new frontend
 echo "➡️ Reloading Nginx..."
 sudo systemctl reload nginx
 
 echo "✅ Update complete!"
+echo "Backend running with PM2 - use 'pm2 logs mclogs-backend' to view logs"
+echo "PM2 status: 'pm2 status'"
