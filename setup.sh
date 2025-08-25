@@ -1,20 +1,21 @@
 #!/bin/bash
-
-set -e  # exit on any error
+set -e
 
 echo "➡️ Pulling latest code from Git..."
 cd "$PROJECT_DIR"
-
 git pull origin main
 
-screen -r backend 
-npm run dev
-
-#quit screen
-screen -d backend
+# Start backend in a detached screen session
+if ! screen -list | grep -q "backend"; then
+    echo "➡️ Starting backend in screen session..."
+    screen -dmS backend bash -c "npm run dev"
+else
+    echo "➡️ Backend screen session already running. Restarting..."
+    screen -S backend -X quit
+    screen -dmS backend bash -c "npm run dev"
+fi
 
 cd "$PROJECT_DIR/frontend"
-
 npm run build
 
 echo "➡️ Reloading Nginx..."
